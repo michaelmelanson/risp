@@ -15,15 +15,13 @@ use nom::{
   },
 
   error::{context, ErrorKind, ParseError},
-  Err,
   IResult,
   multi::{
     separated_list
   },
   sequence::{
     preceded,
-    terminated,
-    
+    terminated
   }
 };
 

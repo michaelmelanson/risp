@@ -3,6 +3,7 @@ use crate::parser::{
     Literal,
     Term
 };
+
 use assembler::{
     mnemonic_parameter_types::{
         immediates::*,
@@ -28,8 +29,7 @@ pub fn execute<'a, 'b>(term: &Term<'a>) -> Result<u64, Error> {
 
     let func = compile_term(&mut stream, term);
 
-    let (_bytes, _hints) = stream.finish();
-    //print_compiled_code(bytes);
+    stream.finish();
     
     let result = unsafe { func() };
     Ok(result)
@@ -70,26 +70,26 @@ fn compile_term<'a>(stream: &mut InstructionStream, term: &Term<'a>) -> Function
     func
 }
 
-fn print_compiled_code(bytes: &[u8]) {
-    use x86asm::{
-        InstructionReader,
-        Mode
-    };
+// fn print_compiled_code(bytes: &[u8]) {
+//     use x86asm::{
+//         InstructionReader,
+//         Mode
+//     };
 
-    let mut reader = InstructionReader::new(bytes, Mode::Long);
+//     let mut reader = InstructionReader::new(bytes, Mode::Long);
     
-    loop {
-        match reader.read() {
-            Ok(instruction) => {
-                println!(" - {:?}", instruction);
-            },
+//     loop {
+//         match reader.read() {
+//             Ok(instruction) => {
+//                 println!(" - {:?}", instruction);
+//             },
 
-            Err(err) => {
-                println!("Error: {:?}", err);
-                break;
-            }
-        }
-    }
-}
+//             Err(err) => {
+//                 println!("Error: {:?}", err);
+//                 break;
+//             }
+//         }
+//     }
+// }
 
 
