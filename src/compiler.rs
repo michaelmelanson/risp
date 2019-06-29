@@ -13,7 +13,7 @@ use assembler::{
     InstructionStream
 };
 
-type Function = unsafe extern "C" fn() -> u64;
+type Function = unsafe extern "C" fn() -> i64;
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,7 +21,7 @@ pub enum Error {
 }
 
 
-pub fn execute<'a, 'b>(term: &Term<'a>) -> Result<u64, Error> {
+pub fn execute<'a>(term: &Term<'a>) -> Result<Literal<'a>, Error> {
     let mut memory_map = ExecutableAnonymousMemoryMap::new(4096, false, false).map_err(Error::MmapError)?;
 
     let hints = assembler::InstructionStreamHints::default();
@@ -32,11 +32,12 @@ pub fn execute<'a, 'b>(term: &Term<'a>) -> Result<u64, Error> {
     stream.finish();
     
     let result = unsafe { func() };
-    Ok(result)
+
+    Ok(Literal::Int(result))
 }
 
 fn compile_term<'a>(stream: &mut InstructionStream, term: &Term<'a>) -> Function {
-    let func = stream.nullary_function_pointer::<u64>();
+    let func = stream.nullary_function_pointer::<i64>();
     stream.push_stack_frame();
 
     match term {

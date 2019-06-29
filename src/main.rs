@@ -1,5 +1,5 @@
 mod parser;
-mod evaluator;
+mod compiler;
 mod tests;
 
 fn main() {
@@ -10,26 +10,10 @@ fn main() {
         let line = readline.readline("risp> ");
 
         match line {
-            Ok(line) => {
-                match parser::term(&line) {
-                    Ok((_remainder, term)) => {
-                        println!("Parsed: {:?}", term);
+            Ok(line) => println!("{:?}", evaluate(&line)),
 
-                        match evaluator::execute(&term) {
-                            Ok(result) => {
-                                println!("{}", result);
-                            },
-                            Err(err) => {
-                                println!("Compilation error: {:?}", err);
-                            }
-                        }
-                    },
-
-                    Err(err) => {
-                        println!("Parse error: {:?}", err);
-                    }
-                }
-            },
+            Err(rustyline::error::ReadlineError::Eof) => break,
+            Err(rustyline::error::ReadlineError::Interrupted) => break,
             Err(err) => {
                 println!("Error: {}", err);
                 break;
@@ -40,4 +24,18 @@ fn main() {
     if let Err(err) = readline.save_history("~/.risp-history") {
         eprintln!("Failed to save history: {}", err);
     }
+}
+
+#[derive(Debug)]
+enum EvalError<'a> {
+    ParseError(nom::Err<(&'a str, nom::error::ErrorKind)>),
+    CompileError(compiler::Error)
+}
+
+fn evaluate(line: &str) -> Result<parser::Literal, EvalError> {
+    let (_remainder, term) = parser::term(&line).map_err(EvalError::ParseError)?;
+    // println!("Parsed: {:?}", term);
+
+    let result = compiler::execute(&term).map_err(EvalError::CompileError)?;
+    Ok(result)
 }

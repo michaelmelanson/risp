@@ -15,7 +15,6 @@ use nom::{
   },
 
   error::{context, ErrorKind, ParseError},
-  Err,
   IResult,
   multi::{
     separated_list
@@ -38,6 +37,7 @@ fn space(input: &str) -> ParseResult<&str> {
 
 #[test]
 fn test_space() {
+  use nom::Err;
   assert_eq!(space("   "), Ok(("", "   ")));
   assert_eq!(space("\t(foo) "), Ok(("(foo) ", "\t")));
   assert_eq!(space("abc"), Err(Err::Error(("abc", ErrorKind::TakeWhile1))));
@@ -57,6 +57,7 @@ fn identifier<'a>(input: &'a str) -> ParseResult<Identifier<'a>> {
 
 #[test]
 fn test_identifier() {
+  use nom::Err;
   assert_eq!(identifier("+"), Ok(("", Identifier("+"))));
   assert_eq!(identifier("foo"), Ok(("", Identifier("foo"))));
   assert_eq!(identifier(" foo"), Err(Err::Error((" foo", ErrorKind::TakeWhile1))));
