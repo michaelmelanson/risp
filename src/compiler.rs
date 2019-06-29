@@ -41,47 +41,7 @@ fn compile_term<'a>(stream: &mut InstructionStream, term: &Term<'a>) -> Function
     stream.push_stack_frame();
 
     match term {
-        Term::Expression(operator, args) => {
-            match operator {
-                Operator::Add => stream.zero_RAX(),
-                Operator::Multiply => stream.mov_Register64Bit_Immediate64Bit(
-                    Register64Bit::RAX,
-                    Immediate64Bit(1)
-                ),
-                _ => {}
-            }
-
-            for arg in args {
-                match arg {
-                    Term::Literal(Literal::Int(int)) => {
-                        stream.mov_Register64Bit_Immediate64Bit(
-                            Register64Bit::RDX,
-                            Immediate64Bit(*int)
-                        );
-                    },
-
-                    _ => unimplemented!()
-                }
-
-                match operator {
-                    Operator::Add => {
-                        stream.add_Register64Bit_Register64Bit(
-                            Register64Bit::RAX,
-                            Register64Bit::RDX
-                        );
-                    },
-
-                    Operator::Multiply => {
-                        stream.imul_Register64Bit_Register64Bit(
-                            Register64Bit::RAX,
-                            Register64Bit::RDX
-                        );
-                    },
-
-                    Operator::CallFunction(_) => unimplemented!()
-                }
-            }
-        },
+        Term::Expression(operator, args) => compile_expression(stream, Register64Bit::RAX, operator, args),
 
         _ => unimplemented!()
     }
@@ -90,6 +50,77 @@ fn compile_term<'a>(stream: &mut InstructionStream, term: &Term<'a>) -> Function
 
     func
 }
+
+fn compile_expression<'a>(
+    stream: &mut InstructionStream,
+    destination: Register64Bit,
+    operator: &Operator,
+    args: &Vec<Term<'a>>
+) {
+    let intermediate_register = Register64Bit::R10;
+    let scratch_register = Register64Bit::R11;
+
+    stream.push_Register64Bit_r64(intermediate_register);
+
+    // Clear the destination register
+    match operator {
+        Operator::Add => stream.mov_Register64Bit_Immediate64Bit(
+            destination,
+            Immediate64Bit(0)
+        ),
+        Operator::Multiply => stream.mov_Register64Bit_Immediate64Bit(
+            destination,
+            Immediate64Bit(1)
+        ),
+        Operator::CallFunction(_func) => unimplemented!()
+    }
+
+    for arg in args {
+        match arg {
+            Term::Literal(Literal::Int(int)) => {
+                stream.mov_Register64Bit_Immediate64Bit(
+                    intermediate_register,
+                    Immediate64Bit(*int)
+                );
+            },
+            
+            Term::Literal(Literal::Str(_str)) => unimplemented!(),
+
+            Term::Expression(operator, args) => {
+                stream.push_Register64Bit_r64(scratch_register);
+                compile_expression(stream, scratch_register, operator, args);
+                stream.mov_Register64Bit_Register64Bit_r64_rm64(
+                    intermediate_register,
+                    scratch_register
+                );
+                stream.pop_Register64Bit_r64(scratch_register);
+            },
+
+            Term::Identifier(_identifier) => unimplemented!() 
+        }
+
+        match operator {
+            Operator::Add => {
+                stream.add_Register64Bit_Register64Bit(
+                    destination,
+                    intermediate_register
+                );
+            },
+
+            Operator::Multiply => {
+                stream.imul_Register64Bit_Register64Bit(
+                    destination,
+                    intermediate_register
+                );
+            },
+
+            Operator::CallFunction(_) => unimplemented!()
+        }
+    }
+
+    stream.pop_Register64Bit_r64(intermediate_register);
+}
+
 
 // fn print_compiled_code(bytes: &[u8]) {
 //     use x86asm::{
