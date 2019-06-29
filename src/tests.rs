@@ -1,11 +1,11 @@
 use crate::{
     parser,
-    compiler
+    evaluator
 };
 
 fn eval(code: &str) -> u64 {
     let (_, ast) = parser::term(code).expect("failed to parse");
-    compiler::execute(&ast).expect("failed to compile")
+    evaluator::execute(&ast).expect("failed to compile")
 }
 
 #[test]

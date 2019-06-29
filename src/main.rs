@@ -1,5 +1,5 @@
 mod parser;
-mod compiler;
+mod evaluator;
 mod tests;
 
 fn main() {
@@ -15,7 +15,7 @@ fn main() {
                     Ok((_remainder, term)) => {
                         println!("Parsed: {:?}", term);
 
-                        match compiler::execute(&term) {
+                        match evaluator::execute(&term) {
                             Ok(result) => {
                                 println!("{}", result);
                             },
