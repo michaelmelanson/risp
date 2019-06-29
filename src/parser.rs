@@ -15,6 +15,7 @@ use nom::{
   },
 
   error::{context, ErrorKind, ParseError},
+  Err,
   IResult,
   multi::{
     separated_list
@@ -117,6 +118,7 @@ fn test_literal() {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator<'a> {
   Add,
+  Multiply,
   CallFunction(Identifier<'a>)
 }
 
@@ -124,6 +126,7 @@ impl <'a> Operator<'a> {
   pub fn from_identifier(i: Identifier<'a>) -> Operator<'a> {
     match i {
       Identifier("+") => Operator::Add,
+      Identifier("*") => Operator::Multiply,
       _ => Operator::CallFunction(i.clone())
     }
   }

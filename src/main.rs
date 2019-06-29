@@ -1,5 +1,6 @@
 mod parser;
 mod compiler;
+mod tests;
 
 fn main() {
     let mut readline = rustyline::Editor::<()>::new();

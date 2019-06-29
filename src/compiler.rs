@@ -40,8 +40,15 @@ fn compile_term<'a>(stream: &mut InstructionStream, term: &Term<'a>) -> Function
     stream.push_stack_frame();
 
     match term {
-        Term::Expression(Operator::Add, args) => {
-            stream.zero_RAX();
+        Term::Expression(operator, args) => {
+            match operator {
+                Operator::Add => stream.zero_RAX(),
+                Operator::Multiply => stream.mov_Register64Bit_Immediate64Bit(
+                    Register64Bit::RAX,
+                    Immediate64Bit(1)
+                ),
+                _ => {}
+            }
 
             for arg in args {
                 match arg {
@@ -55,10 +62,23 @@ fn compile_term<'a>(stream: &mut InstructionStream, term: &Term<'a>) -> Function
                     _ => unimplemented!()
                 }
 
-                stream.add_Register64Bit_Register64Bit(
-                    Register64Bit::RAX,
-                    Register64Bit::RDX
-                );
+                match operator {
+                    Operator::Add => {
+                        stream.add_Register64Bit_Register64Bit(
+                            Register64Bit::RAX,
+                            Register64Bit::RDX
+                        );
+                    },
+
+                    Operator::Multiply => {
+                        stream.imul_Register64Bit_Register64Bit(
+                            Register64Bit::RAX,
+                            Register64Bit::RDX
+                        );
+                    },
+
+                    Operator::CallFunction(_) => unimplemented!()
+                }
             }
         },
 
