@@ -44,30 +44,30 @@ fn test_space() {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Identifier<'a>(&'a str);
+pub struct Identifier(String);
 
-fn identifier<'a>(input: &'a str) -> ParseResult<Identifier<'a>> {
+fn identifier(input: &str) -> ParseResult<Identifier> {
   let chars = "abcdefghijklmnopqrstuvwxyz-_+*/!@#$%^&*<>=";
 
   map(
     take_while1(move |c| chars.contains(c)),
-    Identifier
+    |s: &str| Identifier(s.to_owned())
   )(input)
 }
 
 #[test]
 fn test_identifier() {
   use nom::Err;
-  assert_eq!(identifier("+"), Ok(("", Identifier("+"))));
-  assert_eq!(identifier("foo"), Ok(("", Identifier("foo"))));
+  assert_eq!(identifier("+"), Ok(("", Identifier("+".to_owned()))));
+  assert_eq!(identifier("foo"), Ok(("", Identifier("foo".to_owned()))));
   assert_eq!(identifier(" foo"), Err(Err::Error((" foo", ErrorKind::TakeWhile1))));
-  assert_eq!(identifier("foo "), Ok((" ", Identifier("foo"))));
-  assert_eq!(identifier("foo-bar"), Ok(("", Identifier("foo-bar"))));
+  assert_eq!(identifier("foo "), Ok((" ", Identifier("foo".to_owned()))));
+  assert_eq!(identifier("foo-bar"), Ok(("", Identifier("foo-bar".to_owned()))));
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Literal<'a> {
-  Str(&'a str),
+pub enum Literal {
+  Str(String),
   Int(i64)
 }
 
@@ -75,13 +75,13 @@ fn parse_str<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str
   escaped(alphanumeric1, '\\', one_of("\"n\\"))(i)
 }
 
-fn literal_string<'a>(input: &'a str) -> ParseResult<Literal<'a>> {
+fn literal_string(input: &str) -> ParseResult<Literal> {
   context("literal string",
     preceded(
       char('"'),
       cut(
         terminated(
-          map(parse_str, |s| Literal::Str(s)),
+          map(parse_str, |s| Literal::Str(String::from(s))),
           char('"')
         )
       )
@@ -96,13 +96,13 @@ fn parse_int(input: &str) -> ParseResult<i64> {
   )(input)
 }
 
-fn literal_int<'a>(input: &'a str) -> ParseResult<Literal<'a>> {
+fn literal_int(input: &str) -> ParseResult<Literal> {
   context("literal integer",
     map(parse_int, |i| Literal::Int(i))
   )(input)
 }
 
-fn literal<'a>(input: &'a str) -> ParseResult<Literal<'a>> {
+fn literal(input: &str) -> ParseResult<Literal> {
   alt((
     literal_string,
     literal_int
@@ -111,37 +111,39 @@ fn literal<'a>(input: &'a str) -> ParseResult<Literal<'a>> {
 
 #[test]
 fn test_literal() {
-  assert_eq!(literal("\"foo\""), Ok(("", Literal::Str("foo"))));
+  assert_eq!(literal("\"foo\""), Ok(("", Literal::Str("foo".to_owned()))));
   assert_eq!(literal("1234"), Ok(("", Literal::Int(1234))));
-  assert_eq!(literal("\"foo\"blah"), Ok(("blah", Literal::Str("foo"))));
+  assert_eq!(literal("\"foo\"blah"), Ok(("blah", Literal::Str("foo".to_owned()))));
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Operator<'a> {
+pub enum Operator {
   Add,
   Multiply,
-  CallFunction(Identifier<'a>)
+  CallFunction(Identifier)
 }
 
-impl <'a> Operator<'a> {
-  pub fn from_identifier(i: Identifier<'a>) -> Operator<'a> {
-    match i {
-      Identifier("+") => Operator::Add,
-      Identifier("*") => Operator::Multiply,
-      _ => Operator::CallFunction(i.clone())
+impl Operator {
+  pub fn from_identifier(i: Identifier) -> Operator {
+    if i.0 == "+".to_owned() {
+      Operator::Add
+    } else if i.0 == "*".to_owned() {
+      Operator::Multiply
+    } else {
+      Operator::CallFunction(i.clone())
     }
   }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Term<'a> {
-  Identifier(Identifier<'a>),
-  Literal(Literal<'a>),
-  Expression(Operator<'a>, Vec<Term<'a>>)
+pub enum Term {
+  Identifier(Identifier),
+  Literal(Literal),
+  Expression(Operator, Vec<Term>)
 }
 
 
-fn expression_terms<'a>(input: &'a str) -> ParseResult<Term<'a>> {
+fn expression_terms(input: &str) -> ParseResult<Term> {
   let (input, operator) = identifier(input)?;
   let (input, _) = space(input)?;
   let (input, args) = separated_list(space, term)(input)?;
@@ -151,7 +153,7 @@ fn expression_terms<'a>(input: &'a str) -> ParseResult<Term<'a>> {
   Ok((input, Term::Expression(operator, args)))
 }
 
-fn term_expression<'a>(input: &'a str) -> ParseResult<Term<'a>> {
+fn term_expression(input: &str) -> ParseResult<Term> {
   context("expression",
     preceded(
       char('('),
@@ -162,7 +164,7 @@ fn term_expression<'a>(input: &'a str) -> ParseResult<Term<'a>> {
   )(input)
 }
 
-pub fn term<'a>(input: &'a str) -> ParseResult<Term<'a>> {
+pub fn term(input: &str) -> ParseResult<Term> {
   alt((
     map(identifier, |x| Term::Identifier(x)),
     map(literal, |x| Term::Literal(x)),
@@ -172,9 +174,9 @@ pub fn term<'a>(input: &'a str) -> ParseResult<Term<'a>> {
 
 #[test]
 fn test_term() {
-  assert_eq!(term("foo"), Ok(("", Term::Identifier(Identifier("foo")))));
+  assert_eq!(term("foo"), Ok(("", Term::Identifier(Identifier("foo".to_owned())))));
   assert_eq!(term("123"), Ok(("", Term::Literal(Literal::Int(123)))));
-  assert_eq!(term("\"blah\""), Ok(("", Term::Literal(Literal::Str("blah")))));
+  assert_eq!(term("\"blah\""), Ok(("", Term::Literal(Literal::Str("blah".to_owned())))));
   assert_eq!(term("(+ 1 2)"), Ok(("", Term::Expression(Operator::Add, vec![
     Term::Literal(Literal::Int(1)),
     Term::Literal(Literal::Int(2)),

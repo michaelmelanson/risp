@@ -13,7 +13,18 @@ use assembler::{
     InstructionStream
 };
 
-type Function = unsafe extern "C" fn() -> i64;
+pub struct Function {
+    memory_map: Box<ExecutableAnonymousMemoryMap>,
+    func: unsafe extern "C" fn() -> i64
+}
+
+impl Function {
+    pub fn call(&self) -> Literal {
+        let result = unsafe { (self.func)() };
+
+        Literal::Int(result)
+    }
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,41 +32,38 @@ pub enum Error {
 }
 
 
-pub fn execute<'a>(term: &Term<'a>) -> Result<Literal<'a>, Error> {
-    let mut memory_map = ExecutableAnonymousMemoryMap::new(4096, false, false).map_err(Error::MmapError)?;
+pub fn compile(term: &Term) -> Result<Function, Error> {
+    let mut memory_map = Box::new(ExecutableAnonymousMemoryMap::new(4096, false, false).map_err(Error::MmapError)?);
 
     let hints = assembler::InstructionStreamHints::default();
     let mut stream = memory_map.instruction_stream(&hints);
 
-    let func = compile_term(&mut stream, term);
+    let func = stream.nullary_function_pointer::<i64>();
+    stream.push_stack_frame();
+    compile_term(&mut stream, Register64Bit::RAX, term);
+    stream.pop_stack_frame_and_return();
 
     stream.finish();
     
-    let result = unsafe { func() };
-
-    Ok(Literal::Int(result))
+    Ok(Function {
+        memory_map,
+        func
+    })
 }
 
-fn compile_term<'a>(stream: &mut InstructionStream, term: &Term<'a>) -> Function {
-    let func = stream.nullary_function_pointer::<i64>();
-    stream.push_stack_frame();
-
+fn compile_term(stream: &mut InstructionStream, destination: Register64Bit, term: &Term) {
     match term {
-        Term::Expression(operator, args) => compile_expression(stream, Register64Bit::RAX, operator, args),
+        Term::Expression(operator, args) => compile_expression(stream, destination, operator, args),
 
         _ => unimplemented!()
     }
-
-    stream.pop_stack_frame_and_return();
-
-    func
 }
 
-fn compile_expression<'a>(
+fn compile_expression(
     stream: &mut InstructionStream,
     destination: Register64Bit,
     operator: &Operator,
-    args: &Vec<Term<'a>>
+    args: &Vec<Term>
 ) {
     let intermediate_register = Register64Bit::R10;
     let scratch_register = Register64Bit::R11;

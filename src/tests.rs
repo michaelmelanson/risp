@@ -8,9 +8,10 @@ mod test {
         parser::Literal
     };
 
-    fn eval<'a>(code: &'a str) -> Literal<'a> {
+    fn eval(code: &str) -> Literal {
         let (_, ast) = parser::term(code).expect("failed to parse");
-        compiler::execute(&ast).expect("failed to compile")
+        let function = compiler::compile(&ast).expect("failed to compile");
+        function.call()
     }
 
     #[test]

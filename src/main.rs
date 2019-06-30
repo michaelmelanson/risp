@@ -36,6 +36,7 @@ fn evaluate(line: &str) -> Result<parser::Literal, EvalError> {
     let (_remainder, term) = parser::term(&line).map_err(EvalError::ParseError)?;
     // println!("Parsed: {:?}", term);
 
-    let result = compiler::execute(&term).map_err(EvalError::CompileError)?;
+    let function = compiler::compile(&term).map_err(EvalError::CompileError)?;
+    let result = function.call();
     Ok(result)
 }
