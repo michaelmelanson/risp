@@ -14,7 +14,7 @@ use assembler::{
 };
 
 pub struct Function {
-    memory_map: Box<ExecutableAnonymousMemoryMap>,
+    _memory_map: Box<ExecutableAnonymousMemoryMap>,
     func: unsafe extern "C" fn() -> i64
 }
 
@@ -46,7 +46,7 @@ pub fn compile(term: &Term) -> Result<Function, Error> {
     stream.finish();
     
     Ok(Function {
-        memory_map,
+        _memory_map: memory_map,
         func
     })
 }
@@ -54,8 +54,8 @@ pub fn compile(term: &Term) -> Result<Function, Error> {
 fn compile_term(stream: &mut InstructionStream, destination: Register64Bit, term: &Term) {
     match term {
         Term::Expression(operator, args) => compile_expression(stream, destination, operator, args),
-
-        _ => unimplemented!()
+        Term::Literal(literal) => compile_literal(stream, destination, literal),
+        Term::Identifier(_identifier) => unimplemented!()
     }
 }
 
@@ -76,23 +76,18 @@ fn compile_expression(
             destination,
             Immediate64Bit(0)
         ),
+
         Operator::Multiply => stream.mov_Register64Bit_Immediate64Bit(
             destination,
             Immediate64Bit(1)
         ),
+
         Operator::CallFunction(_func) => unimplemented!()
     }
 
     for arg in args {
         match arg {
-            Term::Literal(Literal::Int(int)) => {
-                stream.mov_Register64Bit_Immediate64Bit(
-                    intermediate_register,
-                    Immediate64Bit(*int)
-                );
-            },
-
-            Term::Literal(Literal::Str(_str)) => unimplemented!(),
+            Term::Literal(literal) => compile_literal(stream, intermediate_register, literal),
 
             Term::Expression(operator, args) => {
                 stream.push_Register64Bit_r64(scratch_register);
@@ -127,4 +122,17 @@ fn compile_expression(
     }
 
     stream.pop_Register64Bit_r64(intermediate_register);
+}
+
+fn compile_literal(stream: &mut InstructionStream, destination: Register64Bit, literal: &Literal) {
+    match literal {
+        Literal::Int(int) => {
+            stream.mov_Register64Bit_Immediate64Bit(
+                destination,
+                Immediate64Bit(*int)
+            );
+        },
+
+        Literal::Str(_) => unimplemented!()
+    }
 }
