@@ -91,7 +91,7 @@ fn compile_expression(
                     Immediate64Bit(*int)
                 );
             },
-            
+
             Term::Literal(Literal::Str(_str)) => unimplemented!(),
 
             Term::Expression(operator, args) => {
