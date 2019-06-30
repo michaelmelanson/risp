@@ -128,28 +128,3 @@ fn compile_expression(
 
     stream.pop_Register64Bit_r64(intermediate_register);
 }
-
-
-// fn print_compiled_code(bytes: &[u8]) {
-//     use x86asm::{
-//         InstructionReader,
-//         Mode
-//     };
-
-//     let mut reader = InstructionReader::new(bytes, Mode::Long);
-    
-//     loop {
-//         match reader.read() {
-//             Ok(instruction) => {
-//                 println!(" - {:?}", instruction);
-//             },
-
-//             Err(err) => {
-//                 println!("Error: {:?}", err);
-//                 break;
-//             }
-//         }
-//     }
-// }
-
-
