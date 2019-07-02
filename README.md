@@ -4,6 +4,8 @@ Risp is a Lisp- or Scheme- style programming environment. It's implemented in Ru
 
 This is SUPER hacky and will probably fail to run all but the simplest programs. It may even eat your homework.
 
+<img src="images/screenshot.png">
+
 ## Features
 
 - [x] Basic arithmetic expressions, e.g. `(+ 1 2 3 4)` evaluates to `10`.
