@@ -35,6 +35,7 @@ impl Function {
 
 #[derive(Debug)]
 pub enum CompileError {
+    IncorrectArity(Identifier, usize, usize),
     NotImplemented(String),
     UnresolvedSymbol(Identifier)
 }
@@ -112,16 +113,14 @@ fn compile_expression(
             Immediate64Bit(1)
         ),
 
-        Operator::CallFunction(name) => {
-
-        }
+        Operator::CallFunction(_name) => {}
     }
 
     for (index, arg) in args.iter().enumerate() {
 
         match operator {
             Operator::Add => {
-                compile_term_argument(stream, stack_frame, intermediate_register, arg);
+                compile_term_argument(stream, stack_frame, intermediate_register, arg)?;
                 stream.add_Register64Bit_Register64Bit(
                     destination,
                     intermediate_register
@@ -129,16 +128,16 @@ fn compile_expression(
             },
 
             Operator::Multiply => {
-                compile_term_argument(stream, stack_frame, intermediate_register, arg);
+                compile_term_argument(stream, stack_frame, intermediate_register, arg)?;
                 stream.imul_Register64Bit_Register64Bit(
                     destination,
                     intermediate_register
                 );
             },
 
-            Operator::CallFunction(identifier) => {
+            Operator::CallFunction(_identifier) => {
                 let register = parameter_register(&index)?;
-                compile_term_argument(stream, stack_frame, register, arg);
+                compile_term_argument(stream, stack_frame, register, arg)?;
             }
         }
     }
@@ -146,6 +145,9 @@ fn compile_expression(
     if let Operator::CallFunction(identifier) = operator {
         match stack_frame.resolve(&identifier) {
             Some(Symbol::Function(function, arity)) => {
+                if args.len() != *arity {
+                    return Err(CompileError::IncorrectArity(identifier.clone(), *arity, args.len()));
+                }
                 stream.mov_Register64Bit_Immediate64Bit(
                     Register64Bit::RAX, 
                     Immediate64Bit(function.func as i64)
@@ -180,7 +182,7 @@ fn compile_literal(
         Literal::Str(string) => {
             stream.mov_Register64Bit_Immediate64Bit(
                 destination,
-                Immediate64Bit(1234)
+                Immediate64Bit(string.as_str().as_ptr() as i64)
             );
         }
     }

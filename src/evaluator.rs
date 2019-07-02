@@ -30,7 +30,7 @@ impl <'a> Evaluator<'a> {
 
     pub fn evaluate<'b>(&mut self, line: &'b str) -> Result<parser::Literal, EvaluationError<'b>> {
         let (remainder, term) = parser::term(line).map_err(EvaluationError::ParseError)?;
-        println!("Parsed: {:?}", term);
+        // println!("Parsed: {:?}", term);
 
         if let Term::Definition(ref definition) = term {
             let mut stack_frame = self.stack_frame.push();
@@ -42,7 +42,7 @@ impl <'a> Evaluator<'a> {
             let function = compiler::compile(&stack_frame, &definition.body).map_err(EvaluationError::CompileError)?;
 
             let symbol = Symbol::Function(function, definition.args.len());
-            println!("{:?}: {:?}", definition.name, symbol);
+            println!("Function {} defined", definition.name);
             self.stack_frame.insert(definition.name.clone(), symbol);
 
         }

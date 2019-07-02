@@ -48,6 +48,12 @@ fn test_space() {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Identifier(String);
 
+impl std::fmt::Display for Identifier {
+  fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    fmt.write_str(&self.0)
+  }
+}
+
 fn identifier(input: &str) -> ParseResult<Identifier> {
   let chars = "abcdefghijklmnopqrstuvwxyz-_+*/!@#$%^&*<>=";
 
