@@ -2,7 +2,8 @@ use nom::{
   branch::alt,
   bytes::complete::{
     escaped,
-    take_while1
+    take_while1,
+    tag
   },
   character::complete::{
     alphanumeric1,
@@ -11,13 +12,14 @@ use nom::{
     one_of
   },
   combinator::{
-    cut, map, map_res
+    cut, map, map_res, opt
   },
 
   error::{context, ErrorKind, ParseError},
   IResult,
   multi::{
-    separated_list
+    separated_list,
+    separated_nonempty_list
   },
   sequence::{
     preceded,
@@ -43,7 +45,7 @@ fn test_space() {
   assert_eq!(space("abc"), Err(Err::Error(("abc", ErrorKind::TakeWhile1))));
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Identifier(String);
 
 fn identifier(input: &str) -> ParseResult<Identifier> {
@@ -135,50 +137,160 @@ impl Operator {
   }
 }
 
+pub type ArgumentsList = Vec<Identifier>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Definition {
+  pub name: Identifier,
+  pub args: ArgumentsList,
+  pub body: Box<Term>
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
   Identifier(Identifier),
   Literal(Literal),
-  Expression(Operator, Vec<Term>)
+  Expression(Operator, Vec<Term>),
+  Definition(Definition)
 }
 
 
 fn expression_terms(input: &str) -> ParseResult<Term> {
-  let (input, operator) = identifier(input)?;
-  let (input, _) = space(input)?;
-  let (input, args) = separated_list(space, term)(input)?;
+  let (input, parts) = separated_nonempty_list(space, term)(input)?;
 
-  let operator = Operator::from_identifier(operator);
+  if let Some((Term::Identifier(operator), args)) = parts.split_first() {
+    let operator = Operator::from_identifier(operator.clone());
+    Ok((input, Term::Expression(operator, Vec::from(args))))
+  } else {
+    Err(nom::Err::Error((input, nom::error::ErrorKind::ParseTo)))
+  }
+}
 
-  Ok((input, Term::Expression(operator, args)))
+pub fn bracketed<I, O, E: ParseError<I>, F>(
+    f: F
+) -> impl Fn(I) -> IResult<I, O, E>
+where
+    F: Fn(I) -> IResult<I, O, E>,
+    I: nom::InputIter,
+    I: nom::Slice<std::ops::RangeFrom<usize>>,
+    I: nom::Slice<std::ops::RangeTo<usize>>,
+    <I as nom::InputIter>::Item: nom::AsChar,
+    I: nom::Offset,
+    I: std::clone::Clone
+{
+  preceded(
+    char('('),
+    terminated(f, char(')'))
+  )
 }
 
 fn term_expression(input: &str) -> ParseResult<Term> {
   context("expression",
-    preceded(
-      char('('),
-      cut(
-        terminated(expression_terms, char(')'))
-      )
-    )
+    bracketed(expression_terms)
   )(input)
 }
 
+fn term_definition(input: &str) -> ParseResult<Term> {
+  context("definition",
+    bracketed(definition_inner)
+  )(input)
+}
+
+fn definition_inner(input: &str) -> ParseResult<Term> {
+  let (input, _) = tag("def")(input)?;
+  let (input, _) = space(input)?;
+  let (input, name) = identifier(input)?;
+  let (input, args) = opt(arguments_list)(input)?;
+  let (input, _) = opt(space)(input)?;
+  let (input, body) = term(input)?;
+
+  let args = args.unwrap_or_default();
+  let body = Box::new(body);
+
+  Ok((input, Term::Definition(
+    Definition { name, args, body }
+  )))
+}
+
+fn arguments_list(input: &str) -> ParseResult<ArgumentsList> {
+  let (input, _) = opt(space)(input)?;
+  context("arguments list",
+    bracketed(separated_list(space, identifier))
+  )(input)
+}
+
+#[test]
+pub fn test_term_definition() {
+    assert_eq!(
+      term_definition("(def add (a b) (+ a b))"), 
+      Ok(("", Term::Definition(Definition {
+        name: Identifier("add".to_owned()),
+        args: vec![
+          Identifier("a".to_owned()),
+          Identifier("b".to_owned())
+        ],
+        body: Box::new(Term::Expression(Operator::Add, vec![
+          Term::Identifier(Identifier("a".to_owned())),
+          Term::Identifier(Identifier("b".to_owned()))
+        ]))
+      })))
+    );
+}
+
 pub fn term(input: &str) -> ParseResult<Term> {
+  let (input, _) = opt(space)(input)?;
+
   alt((
     map(identifier, |x| Term::Identifier(x)),
     map(literal, |x| Term::Literal(x)),
+    term_definition,
     term_expression
   ))(input)
 }
 
+// fn term_function_call(input: &str) -> ParseResult<Term> {
+//   bracketed(function_call_inner)(input)
+// }
+
+// fn function_call_inner(input: &str) -> ParseResult<Term> {
+//   let (input, parts) = separated_nonempty_list(space, term)(input)?;
+//   let (name, args) = parts.split_first().expect("split_first on nonempty list");
+
+//   if let Term::Identifier(name) = name {
+//     Ok((input, Term::Expression(
+//       Operator::CallFunction(name.clone()),
+//       Vec::from(args)
+//     )))
+//   } else {
+//     Err(nom::Err::Error((input, nom::error::ErrorKind::Verify)))
+//   }
+// }
+
 #[test]
 fn test_term() {
   assert_eq!(term("foo"), Ok(("", Term::Identifier(Identifier("foo".to_owned())))));
+  assert_eq!(term("   foo"), Ok(("", Term::Identifier(Identifier("foo".to_owned())))));
   assert_eq!(term("123"), Ok(("", Term::Literal(Literal::Int(123)))));
   assert_eq!(term("\"blah\""), Ok(("", Term::Literal(Literal::Str("blah".to_owned())))));
   assert_eq!(term("(+ 1 2)"), Ok(("", Term::Expression(Operator::Add, vec![
     Term::Literal(Literal::Int(1)),
     Term::Literal(Literal::Int(2)),
   ]))));
+  assert_eq!(term("(def incr (x) (+ 1 x))"), Ok(("", Term::Definition(
+    Definition {
+      name: Identifier("incr".to_owned()),
+      args: vec![Identifier("x".to_owned())],
+      body: Box::new(Term::Expression(
+        Operator::Add,
+        vec![
+          Term::Literal(Literal::Int(1)),
+          Term::Identifier(Identifier("x".to_owned()))
+        ]
+      ))
+    }
+  ))));
+  assert_eq!(term("(some-function)"), Ok(("", Term::Expression(
+    Operator::CallFunction(Identifier("some-function".to_owned())),
+    vec![]
+  ))));
 }
