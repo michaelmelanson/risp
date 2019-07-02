@@ -2,6 +2,7 @@ language: rust
 rust:
   - nightly
 cache: cargo
+sudo: true
 before_script: 
   - ulimit -l 10240
  
