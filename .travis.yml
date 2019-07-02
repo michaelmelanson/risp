@@ -3,5 +3,5 @@ rust:
   - nightly
 cache: cargo
 before_script: 
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ulimit -l 1024; fi
+  - ulimit -l 10240
  
