@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 "nom" = "5.0.0"
-"rustyline" = "5.0.1"
+"rustyline" = "5.0.2"
 "assembler" = "0.10.1"
