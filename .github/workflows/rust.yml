@@ -12,7 +12,7 @@ jobs:
     - name: Print previous ulimit -l
       run: ulimit -l
     - name: Raise ulimit on locked memory
-      run: ulimit -l 4096
+      run: ulimit -l 40960
     - name: Install nightly
       run: rustup install nightly
     - name: Build
