@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Print previous ulimit -l
-      run: ulimit -l
+      run: which ulimit
     - name: Raise ulimit on locked memory
       run: sudo /usr/bin/ulimit -l 40960
     - name: Install nightly
