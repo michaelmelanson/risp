@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Install Rust nightly
-      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly
+      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
     - name: Build
       run: cargo +nightly build --verbose
     - name: Run tests
