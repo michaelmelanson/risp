@@ -9,10 +9,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Install rustup
-      run: curl https://sh.rustup.rs -sSf | sh -s -- -y
     - name: Install Rust nightly
-      run: rustup install nightly
+      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly
     - name: Build
       run: cargo +nightly build --verbose
     - name: Run tests
