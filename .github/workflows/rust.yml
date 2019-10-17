@@ -14,4 +14,4 @@ jobs:
     - name: Build
       run: cargo +nightly build --verbose
     - name: Run tests
-      run: sudo sh -c "ulimit -l 40960; cargo +nightly test --verbose"
+      run: sudo sh -c "ulimit -l 40960; exec su cargo +nightly test --verbose"
