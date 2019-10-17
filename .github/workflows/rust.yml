@@ -9,6 +9,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Raise ulimit on locked memory
+      run: ulimit -l 4096
     - name: Install nightly
       run: rustup install nightly
     - name: Build
