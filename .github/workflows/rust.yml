@@ -5,13 +5,13 @@ on: [push]
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: macOS-latest
 
     steps:
     - uses: actions/checkout@v1
-    - name: Install nightly
-      run: rustup install nightly
+    - name: Install Rust nightly
+      run: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
     - name: Build
-      run: cargo +nightly build --verbose
+      run: $HOME/.cargo/bin/cargo +nightly build --verbose
     - name: Run tests
-      run: cargo +nightly test --verbose
+      run: $HOME/.cargo/bin/cargo +nightly test --verbose
