@@ -4,7 +4,7 @@ mod parser;
 mod stack_frame;
 mod tests;
 
-use crate::evaluator::Evaluator;
+use crate::{evaluator::Evaluator, parser::Literal};
 
 fn main() {
     let mut readline = rustyline::Editor::<()>::new();
@@ -16,7 +16,17 @@ fn main() {
         let line = readline.readline("risp> ");
 
         match line {
-            Ok(line) => println!("{:?}", evaluator.evaluate(&line)),
+            Ok(line) => {
+                let result = evaluator.evaluate(&line);
+
+                match result {
+                    Ok(value) => match value {
+                        Literal::String(value) => println!("(string) {:?}", value),
+                        Literal::Integer(value) => println!("(integer) {:?}", value)
+                    },
+                    Err(error) => eprintln!("Evaluation error: {:?}", error),
+                }
+            }
 
             Err(rustyline::error::ReadlineError::Eof) => break,
             Err(rustyline::error::ReadlineError::Interrupted) => break,
