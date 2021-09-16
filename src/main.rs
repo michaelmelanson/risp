@@ -22,7 +22,7 @@ fn main() {
                 match result {
                     Ok(value) => match value {
                         Literal::String(value) => println!("(string) {:?}", value),
-                        Literal::Integer(value) => println!("(integer) {:?}", value)
+                        Literal::Integer(value) => println!("(integer) {:?}", value),
                     },
                     Err(error) => eprintln!("Evaluation error: {}", error),
                 }

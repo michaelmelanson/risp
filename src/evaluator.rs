@@ -1,11 +1,8 @@
 use std::fmt::Display;
 
-use nom::error::Error;
+use crate::parser::{self, Term};
 
-use crate::parser;
-use crate::parser::Term;
-
-use crate::compiler::{self, CompileError};
+use crate::compiler;
 
 use crate::stack_frame::{StackFrame, Symbol};
 
@@ -22,13 +19,21 @@ impl<'a> Display for EvaluationError<'a> {
                 nom::Err::Incomplete(needed) => write!(f, "expected {:?}", needed),
                 nom::Err::Error(error) => write!(f, "error {:?}", error),
                 nom::Err::Failure(failure) => write!(f, "failure {:?}", failure),
-            }
+            },
             EvaluationError::CompileError(error) => match error {
                 compiler::Error::MmapError(error) => write!(f, "mmap failed: {:?}", error),
                 compiler::Error::CompileError(error) => match error {
-                    compiler::CompileError::IncorrectArity(identifier, expected, actual) => write!(f, "function '{}' expects {} parameters but {} were given", identifier, expected, actual),
-                    compiler::CompileError::NotImplemented(message) => write!(f, "not yet implemented: {}", message),
-                    compiler::CompileError::UnresolvedSymbol(identifier) => write!(f, "{} is not defined", identifier),
+                    compiler::CompileError::IncorrectArity(identifier, expected, actual) => write!(
+                        f,
+                        "function '{}' expects {} parameters but {} were given",
+                        identifier, expected, actual
+                    ),
+                    compiler::CompileError::NotImplemented(message) => {
+                        write!(f, "not yet implemented: {}", message)
+                    }
+                    compiler::CompileError::UnresolvedSymbol(identifier) => {
+                        write!(f, "{} is not defined", identifier)
+                    }
                 },
             },
         }
