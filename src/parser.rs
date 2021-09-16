@@ -18,8 +18,8 @@ use nom::{
   error::{context, ErrorKind, ParseError},
   IResult,
   multi::{
-    separated_list,
-    separated_nonempty_list
+    separated_list0,
+    separated_list1
   },
   sequence::{
     preceded,
@@ -162,21 +162,21 @@ pub enum Term {
 
 
 fn expression_terms(input: &str) -> ParseResult<Term> {
-  let (input, parts) = separated_nonempty_list(space, term)(input)?;
+  let (input, parts) = separated_list1(space, term)(input)?;
 
   if let Some((Term::Identifier(operator), args)) = parts.split_first() {
     let operator = Operator::from_identifier(operator.clone());
     Ok((input, Term::Expression(operator, Vec::from(args))))
   } else {
-    Err(nom::Err::Error((input, nom::error::ErrorKind::ParseTo)))
+    Err(nom::Err::Error((input, nom::error::ErrorKind::SeparatedNonEmptyList)))
   }
 }
 
 pub fn bracketed<I, O, E: ParseError<I>, F>(
     f: F
-) -> impl Fn(I) -> IResult<I, O, E>
+) -> impl FnMut(I) -> IResult<I, O, E>
 where
-    F: Fn(I) -> IResult<I, O, E>,
+    F: FnMut(I) -> IResult<I, O, E>,
     I: nom::InputIter,
     I: nom::Slice<std::ops::RangeFrom<usize>>,
     I: nom::Slice<std::ops::RangeTo<usize>>,
@@ -221,7 +221,7 @@ fn definition_inner(input: &str) -> ParseResult<Term> {
 fn arguments_list(input: &str) -> ParseResult<ArgumentsList> {
   let (input, _) = opt(space)(input)?;
   context("arguments list",
-    bracketed(separated_list(space, identifier))
+    bracketed(separated_list0(space, identifier))
   )(input)
 }
 
