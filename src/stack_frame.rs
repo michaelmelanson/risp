@@ -1,31 +1,31 @@
 use std::collections::HashMap;
 
-use crate::parser::Identifier;
 use crate::compiler::Function;
+use crate::parser::Identifier;
 
 #[derive(Debug)]
 pub enum Symbol {
     Argument(usize),
-    Function(Function, usize)
+    Function(Function, usize),
 }
 
 pub struct StackFrame<'a> {
     parent: Option<&'a StackFrame<'a>>,
-    definitions: HashMap<Identifier, Symbol>
+    definitions: HashMap<Identifier, Symbol>,
 }
 
-impl <'a> StackFrame<'a> {
+impl<'a> StackFrame<'a> {
     pub fn new() -> StackFrame<'a> {
         StackFrame {
             parent: None,
-            definitions: HashMap::new()
+            definitions: HashMap::new(),
         }
     }
 
     pub fn push(&self) -> StackFrame {
         StackFrame {
             parent: Some(self),
-            definitions: HashMap::new()
+            definitions: HashMap::new(),
         }
     }
 

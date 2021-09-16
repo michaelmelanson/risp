@@ -1,30 +1,24 @@
 use crate::parser;
-use crate::parser::{
-    Term
-};
+use crate::parser::Term;
 
 use crate::compiler;
 
-use crate::stack_frame::{
-    StackFrame,
-    Symbol
-};
-
+use crate::stack_frame::{StackFrame, Symbol};
 
 #[derive(Debug)]
 pub enum EvaluationError<'a> {
     ParseError(nom::Err<(&'a str, nom::error::ErrorKind)>),
-    CompileError(compiler::Error)
+    CompileError(compiler::Error),
 }
 
 pub struct Evaluator<'a> {
     stack_frame: StackFrame<'a>,
 }
 
-impl <'a> Evaluator<'a> {
+impl<'a> Evaluator<'a> {
     pub fn new() -> Evaluator<'a> {
         Evaluator {
-            stack_frame: StackFrame::new()
+            stack_frame: StackFrame::new(),
         }
     }
 
@@ -39,15 +33,16 @@ impl <'a> Evaluator<'a> {
                 stack_frame.insert(arg.clone(), Symbol::Argument(index));
             }
 
-            let function = compiler::compile(&stack_frame, &definition.body).map_err(EvaluationError::CompileError)?;
+            let function = compiler::compile(&stack_frame, &definition.body)
+                .map_err(EvaluationError::CompileError)?;
 
             let symbol = Symbol::Function(function, definition.args.len());
             println!("Function {} defined", definition.name);
             self.stack_frame.insert(definition.name.clone(), symbol);
-
         }
 
-        let function = compiler::compile(&self.stack_frame, &term).map_err(EvaluationError::CompileError)?;
+        let function =
+            compiler::compile(&self.stack_frame, &term).map_err(EvaluationError::CompileError)?;
         let result = function.call();
 
         if remainder == "" {
