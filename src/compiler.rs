@@ -193,7 +193,6 @@ fn compile_term_argument(
         Term::Identifier(identifier) => match stack_frame.resolve(&identifier) {
             Some(Symbol::Argument(index)) => {
                 let register = parameter_register(&index)?;
-
                 stream.mov_Register64Bit_Register64Bit_r64_rm64(destination, register);
             }
             Some(Symbol::Function(_function, _arity)) => {

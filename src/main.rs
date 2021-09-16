@@ -24,7 +24,7 @@ fn main() {
                         Literal::String(value) => println!("(string) {:?}", value),
                         Literal::Integer(value) => println!("(integer) {:?}", value)
                     },
-                    Err(error) => eprintln!("Evaluation error: {:?}", error),
+                    Err(error) => eprintln!("Evaluation error: {}", error),
                 }
             }
 
