@@ -1,3 +1,5 @@
+use assembler::mnemonic_parameter_types::FunctionPointer;
+
 use crate::codegen::{self, CodegenError};
 use crate::ir;
 use crate::parser::{Identifier, Literal, Operator, Term};
@@ -16,6 +18,10 @@ impl Function {
         let result = unsafe { (self.func)() };
 
         Literal::Integer(result)
+    }
+
+    pub fn address(&self) -> impl FunctionPointer {
+        self.func
     }
 }
 
@@ -97,36 +103,29 @@ fn compile_expression(
         Operator::CallFunction(identifier) => {
             let mut argument_slots = Vec::with_capacity(args.len());
             for arg in args.iter() {
-                let slot = compile_term_argument(block, stack_frame, arg)?;
-                argument_slots.push(slot);
+                let argument_slot = compile_term_argument(block, stack_frame, arg)?;
+                argument_slots.push(argument_slot);
             }
 
-            match stack_frame.resolve(&identifier) {
-                Some(Symbol::Function(function, arity)) => {
-                    if args.len() != *arity {
-                        return Err(CompileError::IncorrectArity(
-                            identifier.clone(),
-                            *arity,
-                            args.len(),
-                        ));
-                    }
+            let Some(identifier_symbol) = stack_frame.resolve(&identifier) else {
+                return Err(CompileError::UnresolvedSymbol(identifier.clone()));
+            };
 
-                    let return_value_slot =
-                        block.push(ir::Opcode::CallFunction(function.clone(), argument_slots));
+            let Symbol::Function(function, arity) = identifier_symbol else {
+                return Err(CompileError::NotImplemented(format!("calling symbol {:?}", identifier_symbol)));
+            };
 
-                    Ok(return_value_slot)
-                }
-
-                Some(Symbol::Argument(_)) => {
-                    return Err(CompileError::NotImplemented(
-                        "calling function arguments (aka continuations?)".to_owned(),
-                    ));
-                }
-
-                None => {
-                    return Err(CompileError::UnresolvedSymbol(identifier.clone()));
-                }
+            if argument_slots.len() != *arity {
+                return Err(CompileError::IncorrectArity(
+                    identifier.clone(),
+                    argument_slots.len(),
+                    *arity,
+                ));
             }
+
+            let return_value_slot =
+                block.push(ir::Opcode::CallFunction(function.clone(), argument_slots));
+            Ok(return_value_slot)
         }
     }
 }
@@ -154,7 +153,7 @@ fn compile_term_argument(
                 Ok(slot)
             }
             Some(Symbol::Function(_function, _arity)) => Err(CompileError::NotImplemented(
-                "functions as expression arguments".to_owned(),
+                "function term argument".to_string(),
             )),
             None => Err(CompileError::UnresolvedSymbol(identifier.clone())),
         },

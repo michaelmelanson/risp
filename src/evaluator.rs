@@ -66,7 +66,6 @@ impl<'a> Evaluator<'a> {
 
     pub fn evaluate<'b>(&mut self, line: &'b str) -> Result<parser::Literal, EvaluationError<'b>> {
         let (remainder, term) = parser::term(line).map_err(EvaluationError::ParseError)?;
-        // println!("Parsed: {:?}", term);
 
         if let parser::Term::Definition(ref definition) = term {
             let mut stack_frame = self.stack_frame.push();

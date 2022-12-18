@@ -1,4 +1,8 @@
-use std::{fmt::Display, rc::Rc};
+use std::{
+    fmt::Display,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 use crate::compiler::Function;
 
@@ -35,14 +39,8 @@ pub struct Slot(u64);
 
 impl Slot {
     pub fn new() -> Slot {
-        static mut NEXT_ID: u64 = 0;
-
-        let id = unsafe {
-            let id = NEXT_ID;
-            NEXT_ID += 1;
-            id
-        };
-
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         Slot(id)
     }
 }

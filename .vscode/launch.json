@@ -1,52 +1,42 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "lldb",
-            "request": "attach",
-            "name": "Attach",
-            "program": "${workspaceFolder}/target/debug/risp"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug executable 'risp'",
-            "cargo": {
-                "args": [
-                    "+nightly",
-                    "build",
-                    "--bin=risp",
-                    "--package=risp"
-                ],
-                "filter": {
-                    "name": "risp",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'risp'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=risp",
-                    "--package=risp"
-                ],
-                "filter": {
-                    "name": "risp",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "attach",
+      "name": "Attach",
+      "program": "${workspaceFolder}/target/debug/risp"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'risp'",
+      "cargo": {
+        "args": ["+nightly", "build", "--bin=risp", "--package=risp"],
+        "filter": {
+          "name": "risp",
+          "kind": "bin"
         }
-    ]
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'risp'",
+      "cargo": {
+        "args": ["test", "--no-run", "--bin=risp", "--package=risp"],
+        "filter": {
+          "name": "risp",
+          "kind": "bin"
+        }
+      },
+      "args": ["--nocapture"],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
 }

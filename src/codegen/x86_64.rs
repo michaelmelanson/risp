@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap},
     rc::Rc,
 };
 
@@ -25,7 +25,7 @@ pub enum CodegenError {
 
 pub type FuncPointer = unsafe extern "C" fn() -> i64;
 
-fn parameter_register(index: &usize) -> Result<Register64Bit, CodegenError> {
+fn parameter_register(index: usize) -> Result<Register64Bit, CodegenError> {
     match index {
         0 => Ok(Register64Bit::RDI),
         1 => Ok(Register64Bit::RSI),
@@ -48,25 +48,27 @@ enum SlotValue {
 
 struct CodegenState {
     slot_values: HashMap<ir::Slot, SlotValue>,
-    available_registers: HashSet<Register64Bit>,
+    available_registers: BTreeSet<Register64Bit>,
 }
 
 impl CodegenState {
     fn new() -> Self {
-        let available_registers = HashSet::from([
+        let available_registers = BTreeSet::from([
             // Register64Bit::RAX,
-            Register64Bit::RBX,
+            // Register64Bit::RBX,
             Register64Bit::RCX,
             Register64Bit::RDX,
             // Register64Bit::RBP,
+            Register64Bit::RSI,
+            Register64Bit::RDI,
             Register64Bit::R8,
             Register64Bit::R9,
             Register64Bit::R10,
             Register64Bit::R11,
-            Register64Bit::R12,
-            Register64Bit::R13,
-            Register64Bit::R14,
-            Register64Bit::R15,
+            // Register64Bit::R12,
+            // Register64Bit::R13,
+            // Register64Bit::R14,
+            // Register64Bit::R15,
         ]);
 
         Self {
@@ -154,19 +156,32 @@ fn codegen_block(
                     .slot_values
                     .insert(*destination, SlotValue::Register(lhs));
             }
-            ir::Opcode::CallFunction(_func, _args) => todo!("CallFunction opcode"),
+            ir::Opcode::CallFunction(func, args) => {
+                for (index, arg) in args.iter().enumerate() {
+                    let arg_register = slot_to_register(state, stream, arg)?;
+                    stream.mov_Register64Bit_Register64Bit_rm64_r64(
+                        parameter_register(index)?,
+                        arg_register.0,
+                    );
+                }
+
+                stream.call_function(func.address());
+                state.slot_values.insert(
+                    *destination,
+                    SlotValue::Register(Rc::new(RegisterLease(Register64Bit::RAX))),
+                );
+            }
             ir::Opcode::FunctionArgument(index) => {
                 state
                     .slot_values
                     .insert(*destination, SlotValue::FunctionArgument(*index));
             }
             ir::Opcode::Return(slot) => {
-                // let callee_register = state.reserve_specific_register(GeneralPurposeRegister::MicrosoftX64CallingConventionIntegerFunctionArgumentReturn)?;
                 let callee_register = GeneralPurposeRegister::MicrosoftX64CallingConventionIntegerFunctionArgumentReturn;
                 let value = slot_to_register(state, stream, slot)?;
 
                 println!("MOV {:?}, {:?}", callee_register, value.0);
-                stream.mov_Register64Bit_Register64Bit_r64_rm64(callee_register, value.0);
+                stream.mov_Register64Bit_Register64Bit_rm64_r64(callee_register, value.0);
 
                 // state
                 //     .slot_values
@@ -211,7 +226,7 @@ fn slot_to_register(
         }
 
         Some(SlotValue::FunctionArgument(index)) => {
-            state.reserve_specific_register(parameter_register(index)?)
+            state.reserve_specific_register(parameter_register(*index)?)
         }
         None => Err(CodegenError::InternalError(format!(
             "slot {} has no value",
