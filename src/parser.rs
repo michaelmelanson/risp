@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::{escaped, tag, take_while1},
-    character::complete::{alphanumeric1, char, digit1, one_of},
+    character::complete::{char, digit1, one_of},
     combinator::{cut, map, map_res, opt},
     error::{context, ErrorKind, ParseError},
     multi::{separated_list0, separated_list1},
@@ -70,7 +70,11 @@ pub enum Literal {
 }
 
 fn parse_str<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
-    escaped(alphanumeric1, '\\', one_of("\"n\\"))(i)
+    escaped(
+        one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890 !@#$%^&*()"),
+        '\\',
+        one_of("\"n\\"),
+    )(i)
 }
 
 fn literal_string(input: &str) -> ParseResult<Literal> {
@@ -266,8 +270,8 @@ fn test_term() {
     );
     assert_eq!(term("123"), Ok(("", Term::Literal(Literal::Integer(123)))));
     assert_eq!(
-        term("\"blah\""),
-        Ok(("", Term::Literal(Literal::String("blah".to_owned()))))
+        term("\"blah blah\""),
+        Ok(("", Term::Literal(Literal::String("blah blah".to_owned()))))
     );
     assert_eq!(
         term("(+ 1 2)"),
