@@ -1,5 +1,7 @@
+mod codegen;
 mod compiler;
 mod evaluator;
+mod ir;
 mod parser;
 mod stack_frame;
 mod tests;

@@ -1,10 +1,10 @@
 use std::fmt::Display;
+use std::rc::Rc;
 
-use crate::parser::{self, Term};
-
-use crate::compiler;
-
-use crate::stack_frame::{StackFrame, Symbol};
+use crate::{
+    codegen, compiler, parser,
+    stack_frame::{StackFrame, Symbol},
+};
 
 #[derive(Debug)]
 pub enum EvaluationError<'a> {
@@ -21,7 +21,6 @@ impl<'a> Display for EvaluationError<'a> {
                 nom::Err::Failure(failure) => write!(f, "failure {:?}", failure),
             },
             EvaluationError::CompileError(error) => match error {
-                compiler::Error::MmapError(error) => write!(f, "mmap failed: {:?}", error),
                 compiler::Error::CompileError(error) => match error {
                     compiler::CompileError::IncorrectArity(identifier, expected, actual) => write!(
                         f,
@@ -33,6 +32,20 @@ impl<'a> Display for EvaluationError<'a> {
                     }
                     compiler::CompileError::UnresolvedSymbol(identifier) => {
                         write!(f, "{} is not defined", identifier)
+                    }
+                },
+                compiler::Error::CodegenError(error) => match error {
+                    codegen::CodegenError::MmapError(error) => {
+                        write!(f, "could not create memory map: {}", error)
+                    }
+                    codegen::CodegenError::NotImplemented(message) => {
+                        write!(f, "not yet implemented: {}", message)
+                    }
+                    codegen::CodegenError::InternalError(message) => {
+                        write!(f, "internal error: {}", message)
+                    }
+                    codegen::CodegenError::RegisterNotAvailable(register) => {
+                        write!(f, "register not available: {:?}", register)
                     }
                 },
             },
@@ -55,7 +68,7 @@ impl<'a> Evaluator<'a> {
         let (remainder, term) = parser::term(line).map_err(EvaluationError::ParseError)?;
         // println!("Parsed: {:?}", term);
 
-        if let Term::Definition(ref definition) = term {
+        if let parser::Term::Definition(ref definition) = term {
             let mut stack_frame = self.stack_frame.push();
 
             for (index, arg) in definition.args.iter().enumerate() {
@@ -64,8 +77,7 @@ impl<'a> Evaluator<'a> {
 
             let function = compiler::compile(&stack_frame, &definition.body)
                 .map_err(EvaluationError::CompileError)?;
-
-            let symbol = Symbol::Function(function, definition.args.len());
+            let symbol = Symbol::Function(Rc::new(function), definition.args.len());
             println!("Function {} defined", definition.name);
             self.stack_frame.insert(definition.name.clone(), symbol);
         }

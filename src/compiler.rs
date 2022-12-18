@@ -1,20 +1,18 @@
+use crate::codegen::{self, CodegenError};
+use crate::ir;
 use crate::parser::{Identifier, Literal, Operator, Term};
 
 use crate::stack_frame::{StackFrame, Symbol};
 
-use assembler::{
-    mnemonic_parameter_types::{immediates::*, registers::*},
-    ExecutableAnonymousMemoryMap, InstructionStream,
-};
-
 #[derive(Debug)]
 pub struct Function {
-    _memory_map: Box<ExecutableAnonymousMemoryMap>,
+    _memory_map: Box<assembler::ExecutableAnonymousMemoryMap>,
     func: unsafe extern "C" fn() -> i64,
 }
 
 impl Function {
     pub fn call(&self) -> Literal {
+        // TODO other return types
         let result = unsafe { (self.func)() };
 
         Literal::Integer(result)
@@ -30,26 +28,20 @@ pub enum CompileError {
 
 #[derive(Debug)]
 pub enum Error {
-    MmapError(assembler::ExecutableAnonymousMemoryMapCreationError),
     CompileError(CompileError),
+    CodegenError(CodegenError),
 }
 
-pub type CompileResult = Result<(), CompileError>;
+pub type CompileResult = Result<ir::Slot, CompileError>;
 
 pub fn compile(stack_frame: &StackFrame, term: &Term) -> Result<Function, Error> {
-    let mut memory_map =
-        Box::new(ExecutableAnonymousMemoryMap::new(4096, false, false).map_err(Error::MmapError)?);
+    let mut block = ir::Block::default();
+    let result = compile_term(stack_frame, &mut block, term).map_err(Error::CompileError)?;
+    block.push(ir::Opcode::Return(result));
 
-    let hints = assembler::InstructionStreamHints::default();
-    let mut stream = memory_map.instruction_stream(&hints);
+    println!("IR:\n{}", block);
 
-    let func = stream.nullary_function_pointer::<i64>();
-    stream.push_stack_frame();
-    compile_term(stack_frame, &mut stream, Register64Bit::RAX, term)
-        .map_err(Error::CompileError)?;
-    stream.pop_stack_frame_and_return();
-
-    stream.finish();
+    let (memory_map, func) = codegen::codegen(block).map_err(Error::CodegenError)?;
 
     Ok(Function {
         _memory_map: memory_map,
@@ -57,174 +49,118 @@ pub fn compile(stack_frame: &StackFrame, term: &Term) -> Result<Function, Error>
     })
 }
 
-fn compile_term(
-    stack_frame: &StackFrame,
-    stream: &mut InstructionStream,
-    destination: Register64Bit,
-    term: &Term,
-) -> CompileResult {
+fn compile_term(stack_frame: &StackFrame, block: &mut ir::Block, term: &Term) -> CompileResult {
     match term {
-        Term::Expression(operator, args) => {
-            compile_expression(stack_frame, stream, destination, operator, args)
-        }
-        Term::Literal(literal) => compile_literal(stream, destination, literal),
+        Term::Expression(operator, args) => compile_expression(stack_frame, block, operator, args),
+        Term::Literal(literal) => compile_literal(block, literal),
         Term::Identifier(_identifier) => Err(CompileError::NotImplemented(
             "compile identifier term".to_owned(),
         )),
-        Term::Definition(_definition) => compile_literal(
-            stream,
-            destination,
-            &Literal::String("<function>".to_owned()),
-        ),
+        Term::Definition(_definition) => {
+            compile_literal(block, &Literal::String("<function>".to_owned()))
+        }
     }
 }
 
 fn compile_expression(
     stack_frame: &StackFrame,
-    stream: &mut InstructionStream,
-    destination: Register64Bit,
+    block: &mut ir::Block,
     operator: &Operator,
     args: &Vec<Term>,
 ) -> CompileResult {
-    let intermediate_register = Register64Bit::R10;
-
-    stream.push_Register64Bit_r64(intermediate_register);
-
-    // Clear the destination register
     match operator {
-        Operator::Add => stream.mov_Register64Bit_Immediate64Bit(destination, Immediate64Bit(0)),
+        Operator::Add | Operator::Multiply => {
+            let mut args_iter = args.iter();
+            let Some(arg) = args_iter.next() else {
+                return Err(CompileError::NotImplemented(
+                    "arithmetic operator with no arguments".to_owned(),
+                ));
+            };
 
-        Operator::Multiply => {
-            stream.mov_Register64Bit_Immediate64Bit(destination, Immediate64Bit(1))
+            let mut slot = compile_term_argument(block, stack_frame, arg)?;
+
+            for arg in args_iter {
+                let arg_slot = compile_term_argument(block, stack_frame, arg)?;
+
+                let operator = match operator {
+                    Operator::Add => ir::BinaryOperator::Add,
+                    Operator::Multiply => ir::BinaryOperator::Multiply,
+                    _ => panic!(),
+                };
+
+                slot = block.push(ir::Opcode::BinaryOperator(slot, operator, arg_slot));
+            }
+
+            Ok(slot)
         }
 
-        Operator::CallFunction(_name) => {}
-    }
-
-    for (index, arg) in args.iter().enumerate() {
-        match operator {
-            Operator::Add => {
-                compile_term_argument(stream, stack_frame, intermediate_register, arg)?;
-                stream.add_Register64Bit_Register64Bit(destination, intermediate_register);
+        Operator::CallFunction(identifier) => {
+            let mut argument_slots = Vec::with_capacity(args.len());
+            for arg in args.iter() {
+                let slot = compile_term_argument(block, stack_frame, arg)?;
+                argument_slots.push(slot);
             }
 
-            Operator::Multiply => {
-                compile_term_argument(stream, stack_frame, intermediate_register, arg)?;
-                stream.imul_Register64Bit_Register64Bit(destination, intermediate_register);
-            }
+            match stack_frame.resolve(&identifier) {
+                Some(Symbol::Function(function, arity)) => {
+                    if args.len() != *arity {
+                        return Err(CompileError::IncorrectArity(
+                            identifier.clone(),
+                            *arity,
+                            args.len(),
+                        ));
+                    }
 
-            Operator::CallFunction(_identifier) => {
-                let register = parameter_register(&index)?;
-                compile_term_argument(stream, stack_frame, register, arg)?;
-            }
-        }
-    }
+                    let return_value_slot =
+                        block.push(ir::Opcode::CallFunction(function.clone(), argument_slots));
 
-    if let Operator::CallFunction(identifier) = operator {
-        match stack_frame.resolve(&identifier) {
-            Some(Symbol::Function(function, arity)) => {
-                if args.len() != *arity {
-                    return Err(CompileError::IncorrectArity(
-                        identifier.clone(),
-                        *arity,
-                        args.len(),
+                    Ok(return_value_slot)
+                }
+
+                Some(Symbol::Argument(_)) => {
+                    return Err(CompileError::NotImplemented(
+                        "calling function arguments (aka continuations?)".to_owned(),
                     ));
                 }
-                stream.mov_Register64Bit_Immediate64Bit(
-                    Register64Bit::RAX,
-                    Immediate64Bit(function.func as i64),
-                );
-                stream.call_Register64Bit(Register64Bit::RAX);
-            }
-            Some(Symbol::Argument(_)) => {
-                return Err(CompileError::NotImplemented(
-                    "calling function arguments".to_owned(),
-                ));
-            }
-            None => {
-                return Err(CompileError::UnresolvedSymbol(identifier.clone()));
+
+                None => {
+                    return Err(CompileError::UnresolvedSymbol(identifier.clone()));
+                }
             }
         }
     }
-    stream.pop_Register64Bit_r64(intermediate_register);
-    Ok(())
 }
 
-fn compile_literal(
-    stream: &mut InstructionStream,
-    destination: Register64Bit,
-    literal: &Literal,
-) -> CompileResult {
+fn compile_literal(block: &mut ir::Block, literal: &Literal) -> CompileResult {
     match literal {
-        Literal::Integer(int) => {
-            stream.mov_Register64Bit_Immediate64Bit(destination, Immediate64Bit(*int));
-        }
-
+        Literal::Integer(int) => Ok(block.push(ir::Opcode::Literal(ir::Literal::Int(*int)))),
         Literal::String(string) => {
-            stream.mov_Register64Bit_Immediate64Bit(
-                destination,
-                Immediate64Bit(string.as_str().as_ptr() as i64),
-            );
+            Ok(block.push(ir::Opcode::Literal(ir::Literal::String(string.to_string()))))
         }
     }
-
-    Ok(())
 }
+
 fn compile_term_argument(
-    stream: &mut InstructionStream,
+    block: &mut ir::Block,
     stack_frame: &StackFrame,
-    destination: Register64Bit,
     term: &Term,
-) -> Result<(), CompileError> {
-    let scratch_register = Register64Bit::R11;
-
+) -> CompileResult {
     match term {
-        Term::Literal(literal) => {
-            compile_literal(stream, destination, literal)?;
-        }
-
-        Term::Expression(operator, args) => {
-            stream.push_Register64Bit_r64(scratch_register);
-            compile_expression(stack_frame, stream, scratch_register, operator, args)?;
-            stream.mov_Register64Bit_Register64Bit_r64_rm64(destination, scratch_register);
-            stream.pop_Register64Bit_r64(scratch_register);
-        }
-
+        Term::Literal(literal) => compile_literal(block, literal),
+        Term::Expression(operator, args) => compile_expression(stack_frame, block, operator, args),
         Term::Identifier(identifier) => match stack_frame.resolve(&identifier) {
             Some(Symbol::Argument(index)) => {
-                let register = parameter_register(&index)?;
-                stream.mov_Register64Bit_Register64Bit_r64_rm64(destination, register);
+                let slot = block.push(ir::Opcode::FunctionArgument(*index));
+                Ok(slot)
             }
-            Some(Symbol::Function(_function, _arity)) => {
-                return Err(CompileError::NotImplemented(
-                    "functions as expression arguments".to_owned(),
-                ));
-            }
-            None => {
-                return Err(CompileError::UnresolvedSymbol(identifier.clone()));
-            }
+            Some(Symbol::Function(_function, _arity)) => Err(CompileError::NotImplemented(
+                "functions as expression arguments".to_owned(),
+            )),
+            None => Err(CompileError::UnresolvedSymbol(identifier.clone())),
         },
 
-        Term::Definition(_definition) => {
-            return Err(CompileError::NotImplemented(
-                "function definition as function argument".to_owned(),
-            ))
-        }
-    }
-
-    Ok(())
-}
-
-fn parameter_register(index: &usize) -> Result<Register64Bit, CompileError> {
-    match index {
-        0 => Ok(Register64Bit::RDI),
-        1 => Ok(Register64Bit::RSI),
-        2 => Ok(Register64Bit::RDX),
-        3 => Ok(Register64Bit::RCX),
-        4 => Ok(Register64Bit::R8),
-        5 => Ok(Register64Bit::R9),
-        _ => Err(CompileError::NotImplemented(
-            "functions with arity greater than 6".to_owned(),
+        Term::Definition(_definition) => Err(CompileError::NotImplemented(
+            "function definition as function argument".to_owned(),
         )),
     }
 }

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::compiler::Function;
 use crate::parser::Identifier;
@@ -6,7 +7,7 @@ use crate::parser::Identifier;
 #[derive(Debug)]
 pub enum Symbol {
     Argument(usize),
-    Function(Function, usize),
+    Function(Rc<Function>, usize),
 }
 
 pub struct StackFrame<'a> {
