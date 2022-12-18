@@ -110,6 +110,7 @@ pub fn codegen(
     let hints = assembler::InstructionStreamHints::default();
     let mut stream = memory_map.instruction_stream(&hints);
 
+    println!("Assembly:");
     let func = stream.nullary_function_pointer::<i64>();
     codegen_block(&mut state, &mut stream, block)?;
     stream.finish();
