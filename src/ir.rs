@@ -85,11 +85,19 @@ pub enum Opcode {
 impl Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Opcode::Literal(Literal::Int(value)) => write!(f, "{}", value),
+            Opcode::Literal(Literal::Int(value)) => write!(f, "{:X}", value),
             Opcode::Literal(Literal::String(value)) => write!(f, "{}", value),
             Opcode::BinaryOperator(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Opcode::CallFunction(func, args) => {
-                write!(f, "call {:?} ({:?})", func, args)
+                write!(f, "call {} (", func)?;
+                for (index, arg) in args.iter().enumerate() {
+                    write!(f, "{}", arg)?;
+
+                    if index < args.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
             }
             Opcode::FunctionArgument(index) => write!(f, "arg {}", index),
             Opcode::Return(slot) => write!(f, "return {}", slot),

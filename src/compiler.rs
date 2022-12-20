@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use assembler::mnemonic_parameter_types::FunctionPointer;
 
 use crate::codegen::{self, CodegenError};
@@ -25,6 +27,12 @@ impl Function {
     }
 }
 
+impl Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "@{:#X}", self.func as usize)
+    }
+}
+
 #[derive(Debug)]
 pub enum CompileError {
     IncorrectArity(Identifier, usize, usize),
@@ -41,6 +49,8 @@ pub enum Error {
 pub type CompileResult = Result<ir::Slot, CompileError>;
 
 pub fn compile(stack_frame: &StackFrame, term: &Term) -> Result<Function, Error> {
+    println!("AST:\n{:?}\n", term);
+
     let mut block = ir::Block::default();
     let result = compile_term(stack_frame, &mut block, term).map_err(Error::CompileError)?;
     block.push(ir::Opcode::Return(result));
@@ -62,9 +72,7 @@ fn compile_term(stack_frame: &StackFrame, block: &mut ir::Block, term: &Term) ->
         Term::Identifier(_identifier) => Err(CompileError::NotImplemented(
             "compile identifier term".to_owned(),
         )),
-        Term::Definition(_definition) => {
-            compile_literal(block, &Literal::String("<function>".to_owned()))
-        }
+        Term::Definition(_definition) => compile_literal(block, &Literal::Integer(0)),
     }
 }
 

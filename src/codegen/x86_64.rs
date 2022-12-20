@@ -220,7 +220,7 @@ fn slot_to_register(
             };
 
             let reg = state.reserve_register()?;
-            println!("MOV {:?}, {}", reg.0, value);
+            println!("MOV {:?}, {:#X}", reg.0, value);
             stream.mov_Register64Bit_Immediate64Bit(reg.0, Immediate64Bit(value));
 
             Ok(reg)
