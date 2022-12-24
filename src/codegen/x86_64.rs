@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     collections::{BTreeSet, HashMap},
     convert::TryInto,
     rc::Rc,
@@ -8,10 +7,7 @@ use std::{
 use memmap2::Mmap;
 
 use iced_x86::{
-    code_asm::{
-        get_gpr64, ptr, qword_ptr, r8, r9, rax, rbp, rcx, rdi, rdx, rsi, AsmRegister64,
-        CodeAssembler,
-    },
+    code_asm::{get_gpr64, r8, r9, rax, rbp, rcx, rdi, rdx, rsi, AsmRegister64, CodeAssembler},
     BlockEncoderOptions, DecoderOptions,
 };
 
