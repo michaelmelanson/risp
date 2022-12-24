@@ -13,7 +13,7 @@ use iced_x86::{
 
 use crate::{
     ir,
-    value::{EncodedValue, Value, ValueDecodeError, ValueEncodeError},
+    value::{EncodedValue, Value, ValueEncodeError},
 };
 
 use super::CodegenResult;
@@ -26,7 +26,7 @@ pub enum CodegenError {
     InternalError(String),
     RegisterNotAvailable(Register),
     ValueEncodeError(ValueEncodeError),
-    ValueDecodeError(ValueDecodeError),
+    // ValueDecodeError(ValueDecodeError),
 }
 
 impl From<iced_x86::IcedError> for CodegenError {
