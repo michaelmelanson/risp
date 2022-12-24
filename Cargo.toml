@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 "nom" = "7.1.1"
-"rustyline" = { version = "9.1.2", default-features = false }
+"rustyline" = { version = "10", default-features = false }
 memmap2 = "0.5.8"
 
 [dependencies.iced-x86]

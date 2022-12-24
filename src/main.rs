@@ -12,7 +12,7 @@ use value::Value;
 use crate::evaluator::Evaluator;
 
 fn main() {
-    let mut readline = rustyline::Editor::<()>::new();
+    let mut readline = rustyline::Editor::<()>::new().expect("readline error");
     let _ = readline.load_history("~/.risp-history");
 
     let mut evaluator = Evaluator::new();
