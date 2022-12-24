@@ -54,6 +54,9 @@ impl<'a> Display for EvaluationError<'a> {
                     codegen::CodegenError::ValueDecodeError(err) => {
                         write!(f, "value decoding error: {:?}", err)
                     }
+                    codegen::CodegenError::IcedError(err) => {
+                        write!(f, "assembly error: {:?}", err)
+                    }
                 },
             },
         }

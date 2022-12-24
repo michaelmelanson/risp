@@ -1,7 +1,7 @@
-use std::convert::{TryInto};
+use std::convert::TryInto;
 use std::fmt::Display;
 
-use assembler::mnemonic_parameter_types::FunctionPointer;
+use memmap2::Mmap;
 
 use crate::codegen::{self, CodegenError, FuncPointer};
 use crate::ir;
@@ -12,7 +12,7 @@ use crate::value::Value;
 
 #[derive(Debug)]
 pub struct Function {
-    _memory_map: Box<assembler::ExecutableAnonymousMemoryMap>,
+    _memory_map: Mmap,
     func: FuncPointer,
 }
 
@@ -25,8 +25,8 @@ impl Function {
         }
     }
 
-    pub fn address(&self) -> impl FunctionPointer {
-        self.func
+    pub fn address(&self) -> u64 {
+        self.func as u64
     }
 }
 

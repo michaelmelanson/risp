@@ -7,4 +7,9 @@ edition = "2018"
 [dependencies]
 "nom" = "7.1.1"
 "rustyline" = { version = "9.1.2", default-features = false }
-"assembler" = { git = "https://github.com/michaelmelanson/assembler.git", branch="remove-unlikely" }
+memmap2 = "0.5.8"
+
+[dependencies.iced-x86]
+version = "1.18.0"
+default-features = false
+features = ["std", "encoder", "decoder", "masm", "code_asm"]
