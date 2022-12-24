@@ -1,17 +1,18 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    convert::TryInto,
     rc::Rc,
 };
 
 use assembler::{
-    mnemonic_parameter_types::{
-        immediates::Immediate64Bit,
-        registers::{GeneralPurposeRegister, Register64Bit},
-    },
+    mnemonic_parameter_types::{immediates::Immediate64Bit, registers::Register64Bit},
     ExecutableAnonymousMemoryMap, ExecutableAnonymousMemoryMapCreationError, InstructionStream,
 };
 
-use crate::ir;
+use crate::{
+    ir,
+    value::{EncodedValue, Value, ValueDecodeError, ValueEncodeError, ValueType},
+};
 
 use super::CodegenResult;
 
@@ -21,9 +22,11 @@ pub enum CodegenError {
     NotImplemented(String),
     InternalError(String),
     RegisterNotAvailable(Register64Bit),
+    ValueEncodeError(ValueEncodeError),
+    ValueDecodeError(ValueDecodeError),
 }
 
-pub type FuncPointer = unsafe extern "C" fn() -> i64;
+pub type FuncPointer = unsafe extern "C" fn() -> EncodedValue;
 
 fn parameter_register(index: usize) -> Result<Register64Bit, CodegenError> {
     match index {
@@ -41,7 +44,7 @@ fn parameter_register(index: usize) -> Result<Register64Bit, CodegenError> {
 
 #[derive(Clone)]
 enum SlotValue {
-    Literal(ir::Literal),
+    Literal(Value),
     FunctionArgument(usize),
     Register(Rc<RegisterLease>),
 }
@@ -57,7 +60,7 @@ impl CodegenState {
             // Register64Bit::RAX,
             // Register64Bit::RBX,
             Register64Bit::RCX,
-            Register64Bit::RDX,
+            // Register64Bit::RDX,
             // Register64Bit::RBP,
             Register64Bit::RSI,
             Register64Bit::RDI,
@@ -111,7 +114,7 @@ pub fn codegen(
     let mut stream = memory_map.instruction_stream(&hints);
 
     println!("Assembly:");
-    let func = stream.nullary_function_pointer::<i64>();
+    let func = stream.nullary_function_pointer::<EncodedValue>();
     codegen_block(&mut state, &mut stream, block)?;
     stream.finish();
 
@@ -157,6 +160,7 @@ fn codegen_block(
                     .slot_values
                     .insert(*destination, SlotValue::Register(lhs));
             }
+
             ir::Opcode::CallFunction(func, args) => {
                 for (index, arg) in args.iter().enumerate() {
                     let arg_register = slot_to_register(state, stream, arg)?;
@@ -178,11 +182,10 @@ fn codegen_block(
                     .insert(*destination, SlotValue::FunctionArgument(*index));
             }
             ir::Opcode::Return(slot) => {
-                let callee_register = GeneralPurposeRegister::MicrosoftX64CallingConventionIntegerFunctionArgumentReturn;
                 let value = slot_to_register(state, stream, slot)?;
 
-                println!("MOV {:?}, {:?}", callee_register, value.0);
-                stream.mov_Register64Bit_Register64Bit_rm64_r64(callee_register, value.0);
+                println!("MOV {:?}, {:?}", Register64Bit::RAX, value.0);
+                stream.mov_Register64Bit_Register64Bit_rm64_r64(Register64Bit::RAX, value.0);
 
                 // state
                 //     .slot_values
@@ -214,21 +217,21 @@ fn slot_to_register(
     match slot_value {
         Some(SlotValue::Register(register)) => Ok(register.clone()),
         Some(SlotValue::Literal(literal)) => {
-            let value = match literal {
-                ir::Literal::Int(value) => *value,
-                ir::Literal::String(value) => value.as_ptr() as i64,
-            };
-
+            let value: EncodedValue = literal.try_into().map_err(CodegenError::ValueEncodeError)?;
             let reg = state.reserve_register()?;
+
+            let value = unsafe { value.as_u64() };
             println!("MOV {:?}, {:#X}", reg.0, value);
-            stream.mov_Register64Bit_Immediate64Bit(reg.0, Immediate64Bit(value));
+            stream.mov_Register64Bit_Immediate64Bit(reg.0, Immediate64Bit(value as i64));
 
             Ok(reg)
         }
 
         Some(SlotValue::FunctionArgument(index)) => {
-            state.reserve_specific_register(parameter_register(*index)?)
+            let register = state.reserve_specific_register(parameter_register(*index)?)?;
+            Ok(register)
         }
+
         None => Err(CodegenError::InternalError(format!(
             "slot {} has no value",
             slot

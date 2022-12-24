@@ -1,8 +1,8 @@
 {
-    "rust-client.channel": "nightly",
-    "rust-client.revealOutputChannelOn": "info",
-    "rust-client.updateOnStartup": true,
-    "lldb.displayFormat": "auto",
-    "lldb.showDisassembly": "always",
-    "lldb.dereferencePointers": true
+  "rust-client.channel": "nightly",
+  "rust-client.revealOutputChannelOn": "info",
+  "rust-client.updateOnStartup": true,
+  "lldb.displayFormat": "hex",
+  "lldb.showDisassembly": "auto",
+  "lldb.dereferencePointers": true
 }

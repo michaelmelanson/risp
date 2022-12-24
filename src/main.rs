@@ -5,8 +5,11 @@ mod ir;
 mod parser;
 mod stack_frame;
 mod tests;
+mod value;
 
-use crate::{evaluator::Evaluator, parser::Literal};
+use value::Value;
+
+use crate::evaluator::Evaluator;
 
 fn main() {
     let mut readline = rustyline::Editor::<()>::new();
@@ -23,8 +26,8 @@ fn main() {
 
                 match result {
                     Ok(value) => match value {
-                        Literal::String(value) => println!("(string) {:?}", value),
-                        Literal::Integer(value) => println!("(integer) {:#X?}", value),
+                        Value::Integer(value) => println!("(integer) {:?}", value),
+                        Value::String(value) => println!("(string) {:?}", value),
                     },
                     Err(error) => eprintln!("Evaluation error: {}", error),
                 }

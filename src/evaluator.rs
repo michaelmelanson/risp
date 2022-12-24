@@ -4,6 +4,7 @@ use std::rc::Rc;
 use crate::{
     codegen, compiler, parser,
     stack_frame::{StackFrame, Symbol},
+    value::Value,
 };
 
 #[derive(Debug)]
@@ -47,6 +48,12 @@ impl<'a> Display for EvaluationError<'a> {
                     codegen::CodegenError::RegisterNotAvailable(register) => {
                         write!(f, "register not available: {:?}", register)
                     }
+                    codegen::CodegenError::ValueEncodeError(err) => {
+                        write!(f, "value encoding error: {:?}", err)
+                    }
+                    codegen::CodegenError::ValueDecodeError(err) => {
+                        write!(f, "value decoding error: {:?}", err)
+                    }
                 },
             },
         }
@@ -64,7 +71,7 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    pub fn evaluate<'b>(&mut self, line: &'b str) -> Result<parser::Literal, EvaluationError<'b>> {
+    pub fn evaluate<'b>(&mut self, line: &'b str) -> Result<Value, EvaluationError<'b>> {
         let (remainder, term) = parser::term(line).map_err(EvaluationError::ParseError)?;
 
         if let parser::Term::Definition(ref definition) = term {

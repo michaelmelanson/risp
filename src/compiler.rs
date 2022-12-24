@@ -1,25 +1,28 @@
+use std::convert::{TryInto};
 use std::fmt::Display;
 
 use assembler::mnemonic_parameter_types::FunctionPointer;
 
-use crate::codegen::{self, CodegenError};
+use crate::codegen::{self, CodegenError, FuncPointer};
 use crate::ir;
 use crate::parser::{Identifier, Literal, Operator, Term};
 
 use crate::stack_frame::{StackFrame, Symbol};
+use crate::value::Value;
 
 #[derive(Debug)]
 pub struct Function {
     _memory_map: Box<assembler::ExecutableAnonymousMemoryMap>,
-    func: unsafe extern "C" fn() -> i64,
+    func: FuncPointer,
 }
 
 impl Function {
-    pub fn call(&self) -> Literal {
-        // TODO other return types
+    pub fn call(&self) -> Value {
         let result = unsafe { (self.func)() };
-
-        Literal::Integer(result)
+        match result.try_into() {
+            Ok(value) => value,
+            Err(err) => panic!("failed to decode value: {:?}", err),
+        }
     }
 
     pub fn address(&self) -> impl FunctionPointer {
@@ -140,9 +143,9 @@ fn compile_expression(
 
 fn compile_literal(block: &mut ir::Block, literal: &Literal) -> CompileResult {
     match literal {
-        Literal::Integer(int) => Ok(block.push(ir::Opcode::Literal(ir::Literal::Int(*int)))),
+        Literal::Integer(int) => Ok(block.push(ir::Opcode::Literal(Value::Integer(*int)))),
         Literal::String(string) => {
-            Ok(block.push(ir::Opcode::Literal(ir::Literal::String(string.to_string()))))
+            Ok(block.push(ir::Opcode::Literal(Value::String(string.to_string()))))
         }
     }
 }

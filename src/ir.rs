@@ -4,7 +4,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::compiler::Function;
+use crate::{compiler::Function, value::Value};
 
 #[derive(Debug, Default)]
 pub struct Block {
@@ -66,15 +66,9 @@ impl Instruction {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Literal {
-    Int(i64),
-    String(String),
-}
-
 #[derive(Debug)]
 pub enum Opcode {
-    Literal(Literal),
+    Literal(Value),
     FunctionArgument(usize),
     Return(Slot),
 
@@ -85,8 +79,8 @@ pub enum Opcode {
 impl Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Opcode::Literal(Literal::Int(value)) => write!(f, "{:X}", value),
-            Opcode::Literal(Literal::String(value)) => write!(f, "{}", value),
+            Opcode::Literal(Value::Integer(value)) => write!(f, "{:X}", value),
+            Opcode::Literal(Value::String(value)) => write!(f, "{}", value),
             Opcode::BinaryOperator(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Opcode::CallFunction(func, args) => {
                 write!(f, "call {} (", func)?;
