@@ -1,71 +1,29 @@
-use std::convert::TryInto;
-use std::fmt::Display;
+mod error;
+mod function;
 
-use memmap2::Mmap;
+use crate::{
+    codegen, ir,
+    parser::{Literal, Operator, Term},
+    stack_frame::{StackFrame, Symbol},
+    value::Value,
+};
 
-use crate::codegen::{self, CodegenError, FuncPointer};
-use crate::ir;
-use crate::parser::{Identifier, Literal, Operator, Term};
-
-use crate::stack_frame::{StackFrame, Symbol};
-use crate::value::Value;
-
-#[derive(Debug)]
-pub struct Function {
-    _memory_map: Mmap,
-    func: FuncPointer,
-}
-
-impl Function {
-    pub fn call(&self) -> Value {
-        let result = unsafe { (self.func)() };
-        match result.try_into() {
-            Ok(value) => value,
-            Err(err) => panic!("failed to decode value: {:?}", err),
-        }
-    }
-
-    pub fn address(&self) -> u64 {
-        self.func as u64
-    }
-}
-
-impl Display for Function {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "@{:#X}", self.func as usize)
-    }
-}
-
-#[derive(Debug)]
-pub enum CompileError {
-    IncorrectArity(Identifier, usize, usize),
-    NotImplemented(String),
-    UnresolvedSymbol(Identifier),
-}
-
-#[derive(Debug)]
-pub enum Error {
-    CompileError(CompileError),
-    CodegenError(CodegenError),
-}
+pub use self::{
+    error::{CompileError, CompilerError},
+    function::Function,
+};
 
 pub type CompileResult = Result<ir::Slot, CompileError>;
 
-pub fn compile(stack_frame: &StackFrame, term: &Term) -> Result<Function, Error> {
+pub fn compile(stack_frame: &StackFrame, term: &Term) -> Result<Function, CompilerError> {
     println!("AST:\n{:?}\n", term);
 
     let mut block = ir::Block::default();
-    let result = compile_term(stack_frame, &mut block, term).map_err(Error::CompileError)?;
+    let result = compile_term(stack_frame, &mut block, term)?;
     block.push(ir::Opcode::Return(result));
 
-    println!("IR:\n{}", block);
-
-    let (memory_map, func) = codegen::codegen(block).map_err(Error::CodegenError)?;
-
-    Ok(Function {
-        _memory_map: memory_map,
-        func,
-    })
+    let function = codegen::codegen(block)?;
+    Ok(function)
 }
 
 fn compile_term(stack_frame: &StackFrame, block: &mut ir::Block, term: &Term) -> CompileResult {

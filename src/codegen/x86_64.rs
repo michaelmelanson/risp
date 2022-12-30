@@ -4,14 +4,13 @@ use std::{
     rc::Rc,
 };
 
-use memmap2::Mmap;
-
 use iced_x86::{
     code_asm::{get_gpr64, r8, r9, rax, rbp, rcx, rdi, rdx, rsi, AsmRegister64, CodeAssembler},
     BlockEncoderOptions, DecoderOptions,
 };
 
 use crate::{
+    compiler::Function,
     ir,
     value::{EncodedValue, Value, ValueEncodeError},
 };
@@ -115,18 +114,22 @@ impl Default for CodegenState {
     }
 }
 
-pub fn codegen(block: ir::Block) -> CodegenResult<(Mmap, FuncPointer)> {
+pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let mut state = CodegenState::new();
     let mut assembler = CodeAssembler::new(64)?;
     let mut start_label = assembler.create_label();
 
+    println!("IR:\n{}", block);
     assembler.set_label(&mut start_label)?;
     codegen_block(&mut state, &mut assembler, block)?;
 
+    let code_length = 4096; // TODO calculate this
+
     let mut memory_map = memmap2::MmapOptions::new()
-        .len(4096)
+        .len(code_length)
         .map_anon()
         .map_err(CodegenError::MmapError)?;
+
     let result = assembler
         .assemble_options(
             memory_map.as_ptr() as u64,
@@ -137,6 +140,8 @@ pub fn codegen(block: ir::Block) -> CodegenResult<(Mmap, FuncPointer)> {
     let func_addr = result.label_ip(&start_label)?;
 
     let mut generated_code = result.inner.code_buffer;
+    // assert!(generated_code.len() == code_length);
+
     let decoder = iced_x86::Decoder::with_ip(
         64,
         &generated_code,
@@ -153,8 +158,9 @@ pub fn codegen(block: ir::Block) -> CodegenResult<(Mmap, FuncPointer)> {
     memory_map.copy_from_slice(&generated_code);
     let memory_map = memory_map.make_exec().map_err(CodegenError::MmapError)?;
 
-    let func = unsafe { std::mem::transmute::<u64, FuncPointer>(func_addr) };
-    Ok((memory_map, func))
+    let function_pointer = unsafe { std::mem::transmute::<u64, FuncPointer>(func_addr) };
+    let function = Function::new(memory_map, function_pointer);
+    Ok(function)
 }
 
 fn codegen_block(
