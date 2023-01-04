@@ -1,33 +1,30 @@
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, tag, take_while1},
-    character::complete::{char, digit1, one_of},
-    combinator::{cut, map, map_res, opt},
-    error::{context, ErrorKind, ParseError},
-    multi::{separated_list0, separated_list1},
-    sequence::{preceded, terminated},
-    IResult,
+    bytes::complete::{escaped, tag},
+    character::complete::{char, digit1, one_of, space0, space1},
+    combinator::{map, map_res, opt},
+    error::{ErrorKind, ParseError},
+    multi::{many1, separated_list0},
+    sequence::{delimited, preceded, terminated},
+    IResult, Slice,
+};
+use nom_locate::position;
+
+use std::{
+    ops::{RangeFrom, RangeTo},
+    str,
 };
 
-use std::str;
+pub type Span<'a> = nom_locate::LocatedSpan<&'a str>;
+type ParseResult<'a, O, E = (Span<'a>, ErrorKind), I = Span<'a>> = IResult<I, Token<'a, O>, E>;
 
-type ParseResult<'a, O, E = (&'a str, ErrorKind), I = &'a str> = IResult<I, O, E>;
-
-fn space(input: &str) -> ParseResult<&str> {
-    let chars = " \t\n\r";
-
-    take_while1(move |c| chars.contains(c))(input)
-}
-
-#[test]
-fn test_space() {
-    use nom::Err;
-    assert_eq!(space("   "), Ok(("", "   ")));
-    assert_eq!(space("\t(foo) "), Ok(("(foo) ", "\t")));
-    assert_eq!(
-        space("abc"),
-        Err(Err::Error(("abc", ErrorKind::TakeWhile1)))
-    );
+#[derive(Debug, PartialEq)]
+pub struct Token<'a, T>
+where
+    T: std::fmt::Debug + PartialEq,
+{
+    pub position: Span<'a>,
+    pub value: T,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -39,27 +36,77 @@ impl std::fmt::Display for Identifier {
     }
 }
 
-fn identifier(input: &str) -> ParseResult<Identifier> {
+fn identifier(input: Span) -> ParseResult<Identifier> {
+    let (input, _) = space0(input)?;
     let chars = "abcdefghijklmnopqrstuvwxyz-_+*/!@#$%^&*<>=";
+    let (input, position) = position(input)?;
+    let (input, value) = map(many1(one_of(chars)), move |v| {
+        Identifier(v.into_iter().collect())
+    })(input)?;
 
-    map(take_while1(move |c| chars.contains(c)), |s: &str| {
-        Identifier(s.to_owned())
-    })(input)
+    Ok((input, Token { position, value }))
 }
 
 #[test]
 fn test_identifier() {
-    use nom::Err;
-    assert_eq!(identifier("+"), Ok(("", Identifier("+".to_owned()))));
-    assert_eq!(identifier("foo"), Ok(("", Identifier("foo".to_owned()))));
+    let input = Span::new("+");
     assert_eq!(
-        identifier(" foo"),
-        Err(Err::Error((" foo", ErrorKind::TakeWhile1)))
+        identifier(input),
+        Ok((
+            input.slice(1..),
+            Token {
+                position: input.slice(0..0),
+                value: Identifier("+".to_owned())
+            }
+        ))
     );
-    assert_eq!(identifier("foo "), Ok((" ", Identifier("foo".to_owned()))));
+
+    let input = Span::new("foo");
     assert_eq!(
-        identifier("foo-bar"),
-        Ok(("", Identifier("foo-bar".to_owned())))
+        identifier(input),
+        Ok((
+            input.slice(3..),
+            Token {
+                position: input.slice(0..0),
+                value: Identifier("foo".to_owned())
+            }
+        ))
+    );
+
+    let input = Span::new(" foo");
+    assert_eq!(
+        identifier(input),
+        Ok((
+            input.slice(4..),
+            Token {
+                position: input.slice(1..1),
+                value: Identifier("foo".to_owned())
+            }
+        ))
+    );
+
+    let input = Span::new("foo ");
+    assert_eq!(
+        identifier(input),
+        Ok((
+            input.slice(3..),
+            Token {
+                position: input.slice(0..0),
+                value: Identifier("foo".to_owned())
+            }
+        ))
+    );
+
+    let input = Span::new("foo-bar");
+    assert_eq!(
+        identifier(input),
+        Ok((
+            input.slice(7..),
+            Token {
+                position: input.slice(0..0),
+                value: Identifier("foo-bar".to_owned())
+            }
+        ))
     );
 }
 
@@ -69,49 +116,78 @@ pub enum Literal {
     Integer(i64),
 }
 
-fn parse_str<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
-    escaped(
-        one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890 !@#$%^&*()"),
-        '\\',
-        one_of("\"n\\"),
-    )(i)
-}
-
-fn literal_string(input: &str) -> ParseResult<Literal> {
-    context(
-        "literal string",
-        preceded(
-            char('"'),
-            cut(terminated(
-                map(parse_str, |s| Literal::String(String::from(s))),
-                char('"'),
-            )),
+fn literal_string(input: Span) -> ParseResult<Literal> {
+    let (input, _) = space0(input)?;
+    let (input, position) = position(input)?;
+    let (input, chars) = delimited(
+        char('"'),
+        escaped(
+            one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890 !@#$%^&*()"),
+            '\\',
+            one_of("\"n\\"),
         ),
-    )(input)
+        char('"'),
+    )(input)?;
+
+    let value = Literal::String(String::from(*chars));
+    Ok((input, Token { position, value }))
 }
 
-fn parse_int(input: &str) -> ParseResult<i64> {
-    map_res(digit1, |s| i64::from_str_radix(s, 10))(input)
+fn parse_int(input: Span) -> ParseResult<i64> {
+    let (input, _) = space0(input)?;
+    let (input, position) = position(input)?;
+    let (input, value) = map_res(digit1, |s: Span| s.parse::<i64>())(input)?;
+    Ok((input, Token { position, value }))
 }
 
-fn literal_int(input: &str) -> ParseResult<Literal> {
-    context("literal integer", map(parse_int, |i| Literal::Integer(i)))(input)
+fn literal_int(input: Span) -> ParseResult<Literal> {
+    let (input, _) = space0(input)?;
+    let (input, position) = position(input)?;
+    let (input, value) = map(parse_int, |i| Literal::Integer(i.value))(input)?;
+
+    Ok((input, Token { position, value }))
 }
 
-fn literal(input: &str) -> ParseResult<Literal> {
+fn literal(input: Span) -> ParseResult<Literal> {
     alt((literal_string, literal_int))(input)
 }
 
 #[test]
 fn test_literal() {
+    let input = Span::new("\"foo\"");
     assert_eq!(
-        literal("\"foo\""),
-        Ok(("", Literal::String("foo".to_owned())))
+        literal(input),
+        Ok((
+            input.slice(5..),
+            Token {
+                position: input.slice(0..0),
+                value: Literal::String("foo".to_owned())
+            }
+        ))
     );
-    assert_eq!(literal("1234"), Ok(("", Literal::Integer(1234))));
+
+    let input = Span::new("1234");
     assert_eq!(
-        literal("\"foo\"blah"),
-        Ok(("blah", Literal::String("foo".to_owned())))
+        literal(input),
+        Ok((
+            input.slice(4..),
+            Token {
+                position: input.slice(0..0),
+                value: Literal::Integer(1234)
+            }
+        ))
+    );
+
+    let input = Span::new("\"foo\"blah");
+    assert_eq!(
+        literal(input),
+        Ok((
+            input.slice(5..),
+            Token {
+                position: input.slice(0..0),
+                value: Literal::String("foo".to_owned())
+            }
+        ))
     );
 }
 
@@ -119,19 +195,6 @@ fn test_literal() {
 pub enum Operator {
     Add,
     Multiply,
-    CallFunction(Identifier),
-}
-
-impl Operator {
-    pub fn from_identifier(i: Identifier) -> Operator {
-        if i.0 == "+".to_owned() {
-            Operator::Add
-        } else if i.0 == "*".to_owned() {
-            Operator::Multiply
-        } else {
-            Operator::CallFunction(i.clone())
-        }
-    }
 }
 
 pub type ArgumentsList = Vec<Identifier>;
@@ -148,29 +211,16 @@ pub enum Term {
     Identifier(Identifier),
     Literal(Literal),
     Expression(Operator, Vec<Term>),
+    CallFunction(Identifier, Vec<Term>),
     Definition(Definition),
-}
-
-fn expression_terms(input: &str) -> ParseResult<Term> {
-    let (input, parts) = separated_list1(space, term)(input)?;
-
-    if let Some((Term::Identifier(operator), args)) = parts.split_first() {
-        let operator = Operator::from_identifier(operator.clone());
-        Ok((input, Term::Expression(operator, Vec::from(args))))
-    } else {
-        Err(nom::Err::Error((
-            input,
-            nom::error::ErrorKind::SeparatedNonEmptyList,
-        )))
-    }
 }
 
 pub fn bracketed<I, O, E: ParseError<I>, F>(f: F) -> impl FnMut(I) -> IResult<I, O, E>
 where
     F: FnMut(I) -> IResult<I, O, E>,
     I: nom::InputIter,
-    I: nom::Slice<std::ops::RangeFrom<usize>>,
-    I: nom::Slice<std::ops::RangeTo<usize>>,
+    I: nom::Slice<RangeFrom<usize>>,
+    I: nom::Slice<RangeTo<usize>>,
     <I as nom::InputIter>::Item: nom::AsChar,
     I: nom::Offset,
     I: std::clone::Clone,
@@ -178,139 +228,323 @@ where
     preceded(char('('), terminated(f, char(')')))
 }
 
-fn term_expression(input: &str) -> ParseResult<Term> {
-    context("expression", bracketed(expression_terms))(input)
+fn term_factor(input: Span) -> ParseResult<Term> {
+    alt((
+        map(literal, |x| Token {
+            position: x.position,
+            value: Term::Literal(x.value),
+        }),
+        map(identifier, |x| Token {
+            position: x.position,
+            value: Term::Identifier(x.value),
+        }),
+    ))(input)
 }
 
-fn term_definition(input: &str) -> ParseResult<Term> {
-    context("definition", bracketed(definition_inner))(input)
+fn expression_multiply(input: Span) -> ParseResult<Term> {
+    let (input, position) = position(input)?;
+    let (input, lhs) = term_factor(input)?;
+    let (input, _) = delimited(space0, tag("*"), space0)(input)?;
+    let (input, rhs) = term(input)?;
+
+    Ok((
+        input,
+        Token {
+            position,
+            value: Term::Expression(Operator::Multiply, vec![lhs.value, rhs.value]),
+        },
+    ))
 }
 
-fn definition_inner(input: &str) -> ParseResult<Term> {
+fn expression_add(input: Span) -> ParseResult<Term> {
+    let (input, position) = position(input)?;
+    let (input, lhs) = term_factor(input)?;
+    let (input, _) = delimited(space0, tag("+"), space0)(input)?;
+    let (input, rhs) = term(input)?;
+
+    Ok((
+        input,
+        Token {
+            position,
+            value: Term::Expression(Operator::Add, vec![lhs.value, rhs.value]),
+        },
+    ))
+}
+
+// e.g.:
+//
+// def add_one (x) { 1 + x }
+//
+fn term_definition(input: Span) -> ParseResult<Term> {
+    let (input, _) = space0(input)?;
+    let (input, position) = position(input)?;
     let (input, _) = tag("def")(input)?;
-    let (input, _) = space(input)?;
+    let (input, _) = space0(input)?;
     let (input, name) = identifier(input)?;
     let (input, args) = opt(arguments_list)(input)?;
-    let (input, _) = opt(space)(input)?;
-    let (input, body) = term(input)?;
+    let (input, body) = delimited(
+        delimited(space0, char('{'), space0),
+        term,
+        delimited(space0, char('}'), space0),
+    )(input)?;
 
-    let args = args.unwrap_or_default();
-    let body = Box::new(body);
+    let args = args.map(|t| t.value).unwrap_or_default();
+    let body = Box::new(body.value);
 
-    Ok((input, Term::Definition(Definition { name, args, body })))
+    Ok((
+        input,
+        Token {
+            position,
+            value: Term::Definition(Definition {
+                name: name.value,
+                args,
+                body,
+            }),
+        },
+    ))
 }
 
-fn arguments_list(input: &str) -> ParseResult<ArgumentsList> {
-    let (input, _) = opt(space)(input)?;
-    context(
-        "arguments list",
-        bracketed(separated_list0(space, identifier)),
-    )(input)
+fn arguments_list(input: Span) -> ParseResult<ArgumentsList> {
+    let (input, _) = space0(input)?;
+    let (input, position) = position(input)?;
+    let (input, value) = bracketed(separated_list0(
+        delimited(space0, char(','), space0),
+        identifier,
+    ))(input)?;
+
+    let value = value.iter().map(|t| t.value.clone()).collect();
+    Ok((input, Token { position, value }))
+}
+
+pub fn term(input: Span) -> ParseResult<Term> {
+    alt((
+        bracketed(term),
+        expression_multiply,
+        expression_add,
+        term_function_call,
+        term_definition,
+        term_factor,
+    ))(input)
+}
+
+fn term_function_call(input: Span) -> ParseResult<Term> {
+    let (input, position) = position(input)?;
+    let (input, identifier) = identifier(input)?;
+
+    let (input, _) = delimited(space0, char('('), space0)(input)?;
+    let (input, args) = separated_list0(delimited(space0, char(','), space0), term)(input)?;
+    let (input, _) = delimited(space0, char(')'), space0)(input)?;
+
+    let args = args.iter().map(|t| t.value.clone()).collect();
+    Ok((
+        input,
+        Token {
+            position,
+            value: Term::CallFunction(identifier.value, args),
+        },
+    ))
+}
+
+#[test]
+fn test_term_identifier() {
+    let input = Span::new("foo");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(3..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Identifier(Identifier("foo".to_owned()))
+            }
+        ))
+    );
+
+    let input = Span::new("   foo");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(6..),
+            Token {
+                position: input.slice(3..3),
+                value: Term::Identifier(Identifier("foo".to_owned()))
+            }
+        ))
+    );
+}
+
+#[test]
+fn test_term_literal() {
+    let input = Span::new("123");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(3..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Literal(Literal::Integer(123))
+            }
+        ))
+    );
+
+    let input = Span::new("\"blah blah\"");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(11..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Literal(Literal::String("blah blah".to_owned()))
+            }
+        ))
+    );
+}
+
+#[test]
+fn test_term_expression() {
+    let input = Span::new("1 + 2");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(5..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Expression(
+                    Operator::Add,
+                    vec![
+                        Term::Literal(Literal::Integer(1)),
+                        Term::Literal(Literal::Integer(2)),
+                    ]
+                )
+            }
+        ))
+    );
+}
+
+#[test]
+pub fn test_nested_expressions_1() {
+    let input = Span::new("1+(2*3)");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(7..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Expression(
+                    Operator::Add,
+                    vec![
+                        Term::Literal(Literal::Integer(1)),
+                        Term::Expression(
+                            Operator::Multiply,
+                            vec![
+                                Term::Literal(Literal::Integer(2)),
+                                Term::Literal(Literal::Integer(3))
+                            ],
+                        ),
+                    ]
+                )
+            }
+        ))
+    );
+}
+#[test]
+pub fn test_nested_expressions_2() {
+    let input = Span::new("(2*3)+(3*4)");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(11..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Expression(
+                    Operator::Add,
+                    vec![
+                        Term::Expression(
+                            Operator::Multiply,
+                            vec![
+                                Term::Literal(Literal::Integer(2)),
+                                Term::Literal(Literal::Integer(3))
+                            ],
+                        ),
+                        Term::Expression(
+                            Operator::Multiply,
+                            vec![
+                                Term::Literal(Literal::Integer(3)),
+                                Term::Literal(Literal::Integer(4))
+                            ],
+                        ),
+                    ]
+                )
+            }
+        ))
+    );
 }
 
 #[test]
 pub fn test_term_definition() {
+    let input = Span::new("def add (a, b) { a + b }");
     assert_eq!(
-        term_definition("(def add (a b) (+ a b))"),
+        term_definition(input),
         Ok((
-            "",
-            Term::Definition(Definition {
-                name: Identifier("add".to_owned()),
-                args: vec![Identifier("a".to_owned()), Identifier("b".to_owned())],
-                body: Box::new(Term::Expression(
-                    Operator::Add,
-                    vec![
-                        Term::Identifier(Identifier("a".to_owned())),
-                        Term::Identifier(Identifier("b".to_owned()))
-                    ]
-                ))
-            })
+            input.slice(24..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Definition(Definition {
+                    name: Identifier("add".to_owned()),
+                    args: vec![Identifier("a".to_owned()), Identifier("b".to_owned())],
+                    body: Box::new(Term::Expression(
+                        Operator::Add,
+                        vec![
+                            Term::Identifier(Identifier("a".to_owned())),
+                            Term::Identifier(Identifier("b".to_owned()))
+                        ]
+                    ))
+                })
+            }
+        ))
+    );
+
+    let input = Span::new("def incr (x) { 1 + x }");
+    assert_eq!(
+        term(input),
+        Ok((
+            input.slice(22..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::Definition(Definition {
+                    name: Identifier("incr".to_owned()),
+                    args: vec![Identifier("x".to_owned())],
+                    body: Box::new(Term::Expression(
+                        Operator::Add,
+                        vec![
+                            Term::Literal(Literal::Integer(1)),
+                            Term::Identifier(Identifier("x".to_owned()))
+                        ]
+                    ))
+                })
+            }
         ))
     );
 }
-
-pub fn term(input: &str) -> ParseResult<Term> {
-    let (input, _) = opt(space)(input)?;
-
-    alt((
-        map(identifier, |x| Term::Identifier(x)),
-        map(literal, |x| Term::Literal(x)),
-        term_definition,
-        term_expression,
-    ))(input)
-}
-
-// fn term_function_call(input: &str) -> ParseResult<Term> {
-//   bracketed(function_call_inner)(input)
-// }
-
-// fn function_call_inner(input: &str) -> ParseResult<Term> {
-//   let (input, parts) = separated_nonempty_list(space, term)(input)?;
-//   let (name, args) = parts.split_first().expect("split_first on nonempty list");
-
-//   if let Term::Identifier(name) = name {
-//     Ok((input, Term::Expression(
-//       Operator::CallFunction(name.clone()),
-//       Vec::from(args)
-//     )))
-//   } else {
-//     Err(nom::Err::Error((input, nom::error::ErrorKind::Verify)))
-//   }
-// }
 
 #[test]
-fn test_term() {
+fn test_term_function_call() {
+    let input = Span::new("some_function(1)");
     assert_eq!(
-        term("foo"),
-        Ok(("", Term::Identifier(Identifier("foo".to_owned()))))
-    );
-    assert_eq!(
-        term("   foo"),
-        Ok(("", Term::Identifier(Identifier("foo".to_owned()))))
-    );
-    assert_eq!(term("123"), Ok(("", Term::Literal(Literal::Integer(123)))));
-    assert_eq!(
-        term("\"blah blah\""),
-        Ok(("", Term::Literal(Literal::String("blah blah".to_owned()))))
-    );
-    assert_eq!(
-        term("(+ 1 2)"),
+        term(input),
         Ok((
-            "",
-            Term::Expression(
-                Operator::Add,
-                vec![
-                    Term::Literal(Literal::Integer(1)),
-                    Term::Literal(Literal::Integer(2)),
-                ]
-            )
+            input.slice(16..),
+            Token {
+                position: input.slice(0..0),
+                value: Term::CallFunction(
+                    Identifier("some_function".to_owned()),
+                    vec![Term::Literal(Literal::Integer(1))]
+                )
+            }
         ))
     );
-    assert_eq!(
-        term("(def incr (x) (+ 1 x))"),
-        Ok((
-            "",
-            Term::Definition(Definition {
-                name: Identifier("incr".to_owned()),
-                args: vec![Identifier("x".to_owned())],
-                body: Box::new(Term::Expression(
-                    Operator::Add,
-                    vec![
-                        Term::Literal(Literal::Integer(1)),
-                        Term::Identifier(Identifier("x".to_owned()))
-                    ]
-                ))
-            })
-        ))
-    );
-    assert_eq!(
-        term("(some-function)"),
-        Ok((
-            "",
-            Term::Expression(
-                Operator::CallFunction(Identifier("some-function".to_owned())),
-                vec![]
-            )
-        ))
-    );
+}
+
+pub fn parse(line: &str) -> ParseResult<Term> {
+    println!("Parsing: {}", line);
+    term(Span::new(line))
 }

@@ -3,7 +3,7 @@ mod function;
 
 use crate::{
     codegen, ir,
-    parser::{Literal, Operator, Term},
+    parser::{Identifier, Literal, Operator, Term},
     stack_frame::{StackFrame, Symbol},
     value::Value,
 };
@@ -34,6 +34,7 @@ fn compile_term(stack_frame: &StackFrame, block: &mut ir::Block, term: &Term) ->
             "compile identifier term".to_owned(),
         )),
         Term::Definition(_definition) => compile_literal(block, &Literal::Integer(0)),
+        Term::CallFunction(name, args) => compile_function_call(stack_frame, block, name, args),
     }
 }
 
@@ -60,7 +61,6 @@ fn compile_expression(
                 let operator = match operator {
                     Operator::Add => ir::BinaryOperator::Add,
                     Operator::Multiply => ir::BinaryOperator::Multiply,
-                    _ => panic!(),
                 };
 
                 slot = block.push(ir::Opcode::BinaryOperator(slot, operator, arg_slot));
@@ -68,35 +68,39 @@ fn compile_expression(
 
             Ok(slot)
         }
-
-        Operator::CallFunction(identifier) => {
-            let mut argument_slots = Vec::with_capacity(args.len());
-            for arg in args.iter() {
-                let argument_slot = compile_term_argument(block, stack_frame, arg)?;
-                argument_slots.push(argument_slot);
-            }
-
-            let Some(identifier_symbol) = stack_frame.resolve(&identifier) else {
-                return Err(CompileError::UnresolvedSymbol(identifier.clone()));
-            };
-
-            let Symbol::Function(function, arity) = identifier_symbol else {
-                return Err(CompileError::NotImplemented(format!("calling symbol {:?}", identifier_symbol)));
-            };
-
-            if argument_slots.len() != *arity {
-                return Err(CompileError::IncorrectArity(
-                    identifier.clone(),
-                    argument_slots.len(),
-                    *arity,
-                ));
-            }
-
-            let return_value_slot =
-                block.push(ir::Opcode::CallFunction(function.clone(), argument_slots));
-            Ok(return_value_slot)
-        }
     }
+}
+
+fn compile_function_call(
+    stack_frame: &StackFrame,
+    block: &mut ir::Block,
+    identifier: &Identifier,
+    args: &Vec<Term>,
+) -> CompileResult {
+    let mut argument_slots = Vec::with_capacity(args.len());
+    for arg in args.iter() {
+        let argument_slot = compile_term_argument(block, stack_frame, arg)?;
+        argument_slots.push(argument_slot);
+    }
+
+    let Some(identifier_symbol) = stack_frame.resolve(&identifier) else {
+                  return Err(CompileError::UnresolvedSymbol(identifier.clone()));
+              };
+
+    let Symbol::Function(function, arity) = identifier_symbol else {
+                  return Err(CompileError::NotImplemented(format!("calling symbol {:?}", identifier_symbol)));
+              };
+
+    if argument_slots.len() != *arity {
+        return Err(CompileError::IncorrectArity(
+            identifier.clone(),
+            argument_slots.len(),
+            *arity,
+        ));
+    }
+
+    let return_value_slot = block.push(ir::Opcode::CallFunction(function.clone(), argument_slots));
+    Ok(return_value_slot)
 }
 
 fn compile_literal(block: &mut ir::Block, literal: &Literal) -> CompileResult {
@@ -126,6 +130,7 @@ fn compile_term_argument(
             )),
             None => Err(CompileError::UnresolvedSymbol(identifier.clone())),
         },
+        Term::CallFunction(_name, _args) => todo!("function call as term argument"),
 
         Term::Definition(_definition) => Err(CompileError::NotImplemented(
             "function definition as function argument".to_owned(),

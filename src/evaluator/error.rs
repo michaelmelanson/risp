@@ -1,15 +1,15 @@
 use std::fmt::Display;
 
-use crate::{codegen, compiler};
+use crate::{codegen, compiler, parser};
 
 #[derive(Debug)]
 pub enum EvaluationError<'a> {
-    ParseError(nom::Err<(&'a str, nom::error::ErrorKind)>),
+    ParseError(nom::Err<(parser::Span<'a>, nom::error::ErrorKind)>),
     CompilerError(compiler::CompilerError),
 }
 
-impl<'a> From<nom::Err<(&'a str, nom::error::ErrorKind)>> for EvaluationError<'a> {
-    fn from(err: nom::Err<(&'a str, nom::error::ErrorKind)>) -> Self {
+impl<'a> From<nom::Err<(parser::Span<'a>, nom::error::ErrorKind)>> for EvaluationError<'a> {
+    fn from(err: nom::Err<(parser::Span<'a>, nom::error::ErrorKind)>) -> Self {
         EvaluationError::ParseError(err)
     }
 }

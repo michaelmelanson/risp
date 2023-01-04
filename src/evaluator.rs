@@ -22,9 +22,9 @@ impl<'a> Evaluator<'a> {
     }
 
     pub fn evaluate<'b>(&mut self, line: &'b str) -> Result<Value, EvaluationError<'b>> {
-        let (remainder, term) = parser::term(line).map_err(EvaluationError::ParseError)?;
+        let (remainder, term) = parser::parse(line).map_err(EvaluationError::ParseError)?;
 
-        if let parser::Term::Definition(ref definition) = term {
+        if let parser::Term::Definition(ref definition) = term.value {
             let mut stack_frame = self.stack_frame.push();
 
             for (index, arg) in definition.args.iter().enumerate() {
@@ -37,14 +37,13 @@ impl<'a> Evaluator<'a> {
             self.stack_frame.insert(definition.name.clone(), symbol);
         }
 
-        let function =
-            compiler::compile(&self.stack_frame, &term)?;
+        let function = compiler::compile(&self.stack_frame, &term.value)?;
         let result = function.call();
 
-        if remainder == "" {
+        if *remainder == "" {
             Ok(result)
         } else {
-            self.evaluate(remainder)
+            self.evaluate(*remainder)
         }
     }
 }
