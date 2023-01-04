@@ -8,9 +8,9 @@ edition = "2021"
 "nom" = "7"
 "nom_locate" = "4"
 "rustyline" = { version = "10", default-features = false }
-memmap2 = "0.5.8"
+memmap2 = "0.5"
 
 [dependencies.iced-x86]
-version = "1.18.0"
+version = "1.18"
 default-features = false
 features = ["std", "encoder", "decoder", "masm", "code_asm"]
