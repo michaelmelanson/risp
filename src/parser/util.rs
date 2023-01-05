@@ -1,9 +1,10 @@
 use std::ops::{RangeFrom, RangeTo};
 
 use nom::{
+    bytes::complete::tag,
     character::complete::{char, space0},
     error::ParseError,
-    sequence::{delimited, preceded, terminated},
+    sequence::{preceded, terminated},
     AsChar, IResult, InputIter, Offset, Slice,
 };
 use nom_locate::position;
@@ -25,8 +26,38 @@ where
 
 pub fn token(c: char) -> impl FnMut(Span) -> ParseResult<char> {
     move |input| {
+        let (input, token) = ignore_whitespace(char(c))(input)?;
+        Ok((
+            input,
+            Token {
+                position: token.position,
+                value: token.value,
+            },
+        ))
+    }
+}
+
+pub fn keyword(k: &str) -> impl FnMut(Span) -> ParseResult<Span> + '_ {
+    move |input| {
+        let (input, token) = ignore_whitespace(tag(k))(input)?;
+        Ok((
+            input,
+            Token {
+                position: token.position,
+                value: token.value,
+            },
+        ))
+    }
+}
+
+pub fn ignore_whitespace<'a, O: std::fmt::Debug + std::cmp::PartialEq>(
+    mut parser: impl FnMut(Span<'a>) -> IResult<Span<'a>, O, (Span<'a>, nom::error::ErrorKind)>,
+) -> impl FnMut(Span<'a>) -> ParseResult<'a, O> {
+    move |input| {
+        let (input, _) = space0(input)?;
         let (input, position) = position(input)?;
-        let (input, value) = delimited(space0, char(c), space0)(input)?;
+        let (input, value) = parser(input)?;
+        let (input, _) = space0(input)?;
         Ok((input, Token { position, value }))
     }
 }

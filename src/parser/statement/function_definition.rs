@@ -1,9 +1,9 @@
-use nom::{bytes::complete::tag, character::complete::space0, multi::separated_list0};
+use nom::{character::complete::space0, multi::separated_list0};
 use nom_locate::position;
 
 use crate::parser::{
     parse_block, parse_identifier,
-    util::{bracketed, token},
+    util::{bracketed, keyword, token},
     Block, Identifier, ParseResult, Span, Token,
 };
 
@@ -32,10 +32,7 @@ pub fn parse_function_definition_statement(input: Span) -> ParseResult<Statement
 }
 
 pub fn parse_function_definition(input: Span) -> ParseResult<FunctionDefinition> {
-    let (input, _) = space0(input)?;
-    let (input, position) = position(input)?;
-    let (input, _) = tag("def")(input)?;
-    let (input, _) = space0(input)?;
+    let (input, def_token) = keyword("def")(input)?;
     let (input, name) = parse_identifier(input)?;
     let (input, args) = parse_arguments_list(input)?;
     let (input, body) = parse_block(input)?;
@@ -43,7 +40,7 @@ pub fn parse_function_definition(input: Span) -> ParseResult<FunctionDefinition>
     Ok((
         input,
         Token {
-            position,
+            position: def_token.position,
             value: FunctionDefinition {
                 name: name.value,
                 args: args.value,
