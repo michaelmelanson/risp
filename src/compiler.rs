@@ -21,7 +21,7 @@ pub fn compile(stack_frame: &StackFrame, block: &Block) -> Result<Function, Comp
     let mut ir_block = ir::Block::default();
     let mut result = None;
 
-    for statement in &block.statements {
+    for statement in &block.0 {
         result = Some(compile_statement(stack_frame, &mut ir_block, statement)?);
     }
 

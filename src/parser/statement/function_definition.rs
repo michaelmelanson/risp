@@ -78,13 +78,11 @@ fn test_function_definition() {
                     value: FunctionDefinition {
                         name: Identifier("add_one".to_string()),
                         args: vec![Identifier("x".to_string())],
-                        body: Block {
-                            statements: vec![Statement::Expression(Expression::BinaryExpression(
-                                Box::new(Expression::Literal(Literal::Integer(1))),
-                                BinaryOperator::Add,
-                                Box::new(Expression::Identifier(Identifier("x".to_string()))),
-                            ))],
-                        },
+                        body: Block(vec![Statement::Expression(Expression::BinaryExpression(
+                            Box::new(Expression::Literal(Literal::Integer(1))),
+                            BinaryOperator::Add,
+                            Box::new(Expression::Identifier(Identifier("x".to_string()))),
+                        ))]),
                     },
                 },
             )

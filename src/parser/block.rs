@@ -8,9 +8,7 @@ use nom_locate::position;
 use super::{parse_statement, util::token, ParseResult, Span, Statement, Token};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Block {
-    pub statements: Vec<Statement>,
-}
+pub struct Block(pub Vec<Statement>);
 
 pub fn parse_block(input: Span) -> ParseResult<Block> {
     delimited(
@@ -29,7 +27,7 @@ pub fn parse_block_inner(input: Span) -> ParseResult<Block> {
         input,
         Token {
             position,
-            value: Block { statements },
+            value: Block(statements),
         },
     ))
 }

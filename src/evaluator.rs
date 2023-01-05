@@ -25,7 +25,7 @@ impl<'a> Evaluator<'a> {
     pub fn evaluate<'b>(&mut self, line: &'b str) -> Result<Value, EvaluationError<'b>> {
         let (remainder, block) = parser::parse(line).map_err(EvaluationError::ParseError)?;
 
-        for statement in &block.value.statements {
+        for statement in &block.value.0 {
             self.evaluate_statement(statement)?;
         }
 
