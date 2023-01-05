@@ -1,4 +1,24 @@
 #[cfg(test)]
+pub fn parse_test<T: std::fmt::Debug + PartialEq>(
+    parser: impl Fn(crate::parser::Span) -> crate::parser::ParseResult<T>,
+    input: &str,
+    expected: impl Fn(crate::parser::Span) -> (crate::parser::Span, crate::parser::Token<T>),
+) {
+    use crate::parser::Span;
+
+    let input = Span::new(input);
+    let actual = parser(input);
+
+    match actual {
+        Ok(actual) => {
+            let expected = expected(input);
+            assert_eq!(actual, expected);
+        }
+        Err(error) => panic!("Parsing test failed: {:?}", error),
+    }
+}
+
+#[cfg(test)]
 mod test {
     use crate::{evaluator::Evaluator, value::Value};
 
@@ -10,6 +30,12 @@ mod test {
     fn test_arithmetic() {
         assert_eq!(eval("55 + 42"), Value::Integer(97));
         assert_eq!(eval("21 * 2"), Value::Integer(42));
+        assert_eq!(eval("1+2*3"), Value::Integer(7));
+        assert_eq!(eval("2*3+3*4"), Value::Integer(18));
+    }
+
+    #[test]
+    fn test_bracketed_expressions() {
         assert_eq!(eval("1+(2*3)"), Value::Integer(7));
         assert_eq!(eval("(2*3)+(3*4)"), Value::Integer(18));
     }

@@ -3,7 +3,7 @@ mod function;
 
 use crate::{
     codegen, ir,
-    parser::{Identifier, Literal, Operator, Term},
+    parser::{BinaryOperator, Block, Expression, Identifier, Literal, Statement},
     stack_frame::{StackFrame, Symbol},
     value::Value,
 };
@@ -15,71 +15,99 @@ pub use self::{
 
 pub type CompileResult = Result<ir::Slot, CompileError>;
 
-pub fn compile(stack_frame: &StackFrame, term: &Term) -> Result<Function, CompilerError> {
-    println!("AST:\n{:?}\n", term);
+pub fn compile(stack_frame: &StackFrame, block: &Block) -> Result<Function, CompilerError> {
+    println!("AST:\n{:?}\n", block);
 
-    let mut block = ir::Block::default();
-    let result = compile_term(stack_frame, &mut block, term)?;
-    block.push(ir::Opcode::Return(result));
+    let mut ir_block = ir::Block::default();
+    let mut result = None;
 
-    let function = codegen::codegen(block)?;
+    for statement in &block.statements {
+        result = Some(compile_statement(stack_frame, &mut ir_block, statement)?);
+    }
+
+    let Some(result ) = result else {
+        unimplemented!("empty block");
+    };
+
+    ir_block.push(ir::Opcode::Return(result));
+
+    let function = codegen::codegen(ir_block)?;
     Ok(function)
 }
 
-fn compile_term(stack_frame: &StackFrame, block: &mut ir::Block, term: &Term) -> CompileResult {
-    match term {
-        Term::Expression(operator, args) => compile_expression(stack_frame, block, operator, args),
-        Term::Literal(literal) => compile_literal(block, literal),
-        Term::Identifier(_identifier) => Err(CompileError::NotImplemented(
-            "compile identifier term".to_owned(),
-        )),
-        Term::Definition(_definition) => compile_literal(block, &Literal::Integer(0)),
-        Term::CallFunction(name, args) => compile_function_call(stack_frame, block, name, args),
+fn compile_statement(
+    stack_frame: &StackFrame,
+    block: &mut ir::Block,
+    statement: &Statement,
+) -> CompileResult {
+    match statement {
+        Statement::Expression(expression) => compile_expression(stack_frame, block, expression),
+        Statement::Definition(_definition) => compile_literal(block, &Literal::Integer(0)),
     }
 }
 
 fn compile_expression(
     stack_frame: &StackFrame,
     block: &mut ir::Block,
-    operator: &Operator,
-    args: &Vec<Term>,
+    expression: &Expression,
 ) -> CompileResult {
-    match operator {
-        Operator::Add | Operator::Multiply => {
-            let mut args_iter = args.iter();
-            let Some(arg) = args_iter.next() else {
-                return Err(CompileError::NotImplemented(
-                    "arithmetic operator with no arguments".to_owned(),
-                ));
-            };
-
-            let mut slot = compile_term_argument(block, stack_frame, arg)?;
-
-            for arg in args_iter {
-                let arg_slot = compile_term_argument(block, stack_frame, arg)?;
-
-                let operator = match operator {
-                    Operator::Add => ir::BinaryOperator::Add,
-                    Operator::Multiply => ir::BinaryOperator::Multiply,
-                };
-
-                slot = block.push(ir::Opcode::BinaryOperator(slot, operator, arg_slot));
-            }
-
-            Ok(slot)
+    match expression {
+        Expression::Identifier(identifier) => compile_identifier(stack_frame, block, identifier),
+        Expression::FunctionCall(identifier, args) => {
+            compile_function_call(stack_frame, block, identifier, args)
+        }
+        Expression::Literal(literal) => compile_literal(block, literal),
+        Expression::BinaryExpression(lhs, operator, rhs) => {
+            compile_binary_operator_expression(stack_frame, block, lhs, operator, rhs)
         }
     }
+}
+
+fn compile_identifier(
+    stack_frame: &StackFrame,
+    block: &mut ir::Block,
+    identifier: &Identifier,
+) -> Result<ir::Slot, CompileError> {
+    match stack_frame.resolve(identifier) {
+        Some(symbol) => match symbol {
+            Symbol::Argument(index) => {
+                let slot = block.push(ir::Opcode::FunctionArgument(*index));
+                Ok(slot)
+            }
+            Symbol::Function(_function, _arity) => todo!("compile function identifier"),
+        },
+        None => unimplemented!("undefined symbol"),
+    }
+}
+
+pub fn compile_binary_operator_expression(
+    stack_frame: &StackFrame,
+    block: &mut ir::Block,
+    lhs: &Expression,
+    operator: &BinaryOperator,
+    rhs: &Expression,
+) -> CompileResult {
+    let lhs_slot = compile_expression(stack_frame, block, lhs)?;
+    let rhs_slot = compile_expression(stack_frame, block, rhs)?;
+
+    let operator = match operator {
+        BinaryOperator::Add => ir::BinaryOperator::Add,
+        BinaryOperator::Multiply => ir::BinaryOperator::Multiply,
+    };
+
+    let slot = block.push(ir::Opcode::BinaryOperator(lhs_slot, operator, rhs_slot));
+    Ok(slot)
 }
 
 fn compile_function_call(
     stack_frame: &StackFrame,
     block: &mut ir::Block,
     identifier: &Identifier,
-    args: &Vec<Term>,
+    args: &Vec<Expression>,
 ) -> CompileResult {
     let mut argument_slots = Vec::with_capacity(args.len());
     for arg in args.iter() {
-        let argument_slot = compile_term_argument(block, stack_frame, arg)?;
+        let argument_slot = compile_expression(stack_frame, block, arg)?;
         argument_slots.push(argument_slot);
     }
 
@@ -109,31 +137,5 @@ fn compile_literal(block: &mut ir::Block, literal: &Literal) -> CompileResult {
         Literal::String(string) => {
             Ok(block.push(ir::Opcode::Literal(Value::String(string.to_string()))))
         }
-    }
-}
-
-fn compile_term_argument(
-    block: &mut ir::Block,
-    stack_frame: &StackFrame,
-    term: &Term,
-) -> CompileResult {
-    match term {
-        Term::Literal(literal) => compile_literal(block, literal),
-        Term::Expression(operator, args) => compile_expression(stack_frame, block, operator, args),
-        Term::Identifier(identifier) => match stack_frame.resolve(&identifier) {
-            Some(Symbol::Argument(index)) => {
-                let slot = block.push(ir::Opcode::FunctionArgument(*index));
-                Ok(slot)
-            }
-            Some(Symbol::Function(_function, _arity)) => Err(CompileError::NotImplemented(
-                "function term argument".to_string(),
-            )),
-            None => Err(CompileError::UnresolvedSymbol(identifier.clone())),
-        },
-        Term::CallFunction(_name, _args) => todo!("function call as term argument"),
-
-        Term::Definition(_definition) => Err(CompileError::NotImplemented(
-            "function definition as function argument".to_owned(),
-        )),
     }
 }
