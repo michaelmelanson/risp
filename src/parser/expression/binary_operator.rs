@@ -1,6 +1,10 @@
 use nom::{multi::fold_many0, sequence::preceded};
 
-use crate::parser::{util::token, ParseResult, Span, Token};
+use crate::parser::{
+    tokens::{add, multiply},
+    util::token,
+    ParseResult, Span, Token,
+};
 
 use super::{parse_factor_expression, Expression};
 
@@ -13,7 +17,7 @@ pub enum BinaryOperator {
 pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> {
     let (input, lhs) = parse_expression_term(input)?;
     let (input, value) = fold_many0(
-        preceded(token('+'), parse_expression_term),
+        preceded(add, parse_expression_term),
         || lhs.clone(),
         |acc, rhs| Token {
             position: acc.position,
@@ -31,7 +35,7 @@ pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> 
 pub fn parse_expression_term(input: Span) -> ParseResult<Expression> {
     let (input, lhs) = parse_factor_expression(input)?;
     let (input, value) = fold_many0(
-        preceded(token('*'), parse_factor_expression),
+        preceded(multiply, parse_factor_expression),
         || lhs.clone(),
         |acc, rhs| Token {
             position: acc.position,

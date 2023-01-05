@@ -3,6 +3,7 @@ use nom_locate::position;
 
 use crate::parser::{
     parse_block, parse_identifier,
+    tokens::comma,
     util::{bracketed, keyword, token},
     Block, Identifier, ParseResult, Span, Token,
 };
@@ -53,7 +54,7 @@ pub fn parse_function_definition(input: Span) -> ParseResult<FunctionDefinition>
 fn parse_arguments_list(input: Span) -> ParseResult<Vec<Identifier>> {
     let (input, _) = space0(input)?;
     let (input, position) = position(input)?;
-    let (input, value) = bracketed(separated_list0(token(','), parse_identifier))(input)?;
+    let (input, value) = bracketed(separated_list0(comma, parse_identifier))(input)?;
 
     let value = value.iter().map(|t| t.value.clone()).collect();
     Ok((input, Token { position, value }))

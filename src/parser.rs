@@ -3,6 +3,7 @@ mod expression;
 mod identifier;
 mod literal;
 mod statement;
+mod tokens;
 mod util;
 
 use crate::parser::block::parse_block_inner;
