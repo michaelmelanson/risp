@@ -1,8 +1,4 @@
-use nom::{
-    character::complete::{char, space0},
-    multi::separated_list0,
-    sequence::delimited,
-};
+use nom::{multi::separated_list0, sequence::delimited};
 use nom_locate::position;
 
 use super::{parse_statement, util::token, ParseResult, Span, Statement, Token};
@@ -11,11 +7,7 @@ use super::{parse_statement, util::token, ParseResult, Span, Statement, Token};
 pub struct Block(pub Vec<Statement>);
 
 pub fn parse_block(input: Span) -> ParseResult<Block> {
-    delimited(
-        delimited(space0, char('{'), space0),
-        parse_block_inner,
-        delimited(space0, char('}'), space0),
-    )(input)
+    delimited(token('{'), parse_block_inner, token('}'))(input)
 }
 
 pub fn parse_block_inner(input: Span) -> ParseResult<Block> {
