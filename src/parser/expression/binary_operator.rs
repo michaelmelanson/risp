@@ -2,7 +2,6 @@ use nom::{multi::fold_many0, sequence::preceded};
 
 use crate::parser::{
     tokens::{add, multiply},
-    util::token,
     ParseResult, Span, Token,
 };
 

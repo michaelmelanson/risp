@@ -1,7 +1,6 @@
 use std::ops::{RangeFrom, RangeTo};
 
 use nom::{
-    bytes::complete::tag,
     character::complete::{char, space0},
     error::ParseError,
     sequence::{preceded, terminated},
@@ -22,32 +21,6 @@ where
     I: std::clone::Clone,
 {
     preceded(char('('), terminated(f, char(')')))
-}
-
-pub fn token(c: char) -> impl FnMut(Span) -> ParseResult<char> {
-    move |input| {
-        let (input, token) = ignore_whitespace(char(c))(input)?;
-        Ok((
-            input,
-            Token {
-                position: token.position,
-                value: token.value,
-            },
-        ))
-    }
-}
-
-pub fn keyword(k: &str) -> impl FnMut(Span) -> ParseResult<Span> + '_ {
-    move |input| {
-        let (input, token) = ignore_whitespace(tag(k))(input)?;
-        Ok((
-            input,
-            Token {
-                position: token.position,
-                value: token.value,
-            },
-        ))
-    }
 }
 
 pub fn ignore_whitespace<'a, O: std::fmt::Debug + std::cmp::PartialEq>(

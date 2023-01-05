@@ -1,12 +1,7 @@
 use nom::multi::separated_list0;
 use nom_locate::position;
 
-use crate::parser::{
-    parse_identifier,
-    tokens::comma,
-    util::{bracketed, token},
-    ParseResult, Span, Token,
-};
+use crate::parser::{parse_identifier, tokens::comma, util::bracketed, ParseResult, Span, Token};
 
 use super::{parse_expression, Expression};
 

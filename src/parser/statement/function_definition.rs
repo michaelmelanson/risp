@@ -3,8 +3,8 @@ use nom_locate::position;
 
 use crate::parser::{
     parse_block, parse_identifier,
-    tokens::comma,
-    util::{bracketed, keyword, token},
+    tokens::{comma, def},
+    util::bracketed,
     Block, Identifier, ParseResult, Span, Token,
 };
 
@@ -33,7 +33,7 @@ pub fn parse_function_definition_statement(input: Span) -> ParseResult<Statement
 }
 
 pub fn parse_function_definition(input: Span) -> ParseResult<FunctionDefinition> {
-    let (input, def_token) = keyword("def")(input)?;
+    let (input, def_token) = def(input)?;
     let (input, name) = parse_identifier(input)?;
     let (input, args) = parse_arguments_list(input)?;
     let (input, body) = parse_block(input)?;

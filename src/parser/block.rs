@@ -4,7 +4,6 @@ use nom_locate::position;
 use super::{
     parse_statement,
     tokens::{close_brace, newline, open_brace},
-    util::token,
     ParseResult, Span, Statement, Token,
 };
 
