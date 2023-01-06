@@ -20,7 +20,7 @@ pub fn compile<'a>(
     stack_frame: &'a mut StackFrame<'_>,
     block: &Block,
 ) -> Result<Function, CompilerError> {
-    // println!("AST:\n{:?}\n", block);
+    println!("AST:\n{:?}\n", block);
 
     let mut ir_block = ir::Block::new(stack_frame);
     let mut result = None;

@@ -30,6 +30,6 @@ where
 }
 
 pub fn parse(line: &str) -> ParseResult<Block> {
-    // println!("Parsing: {}", line);
+    println!("Parsing:\n{}", line);
     parse_block_inner(Span::new(line))
 }

@@ -6,7 +6,7 @@ use std::{
 
 use iced_x86::{
     code_asm::{get_gpr64, r8, r9, rax, rbp, rcx, rdi, rdx, rsi, AsmRegister64, CodeAssembler},
-    BlockEncoderOptions, //DecoderOptions,
+    BlockEncoderOptions, DecoderOptions,
 };
 
 use crate::{
@@ -129,7 +129,7 @@ pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let mut assembler = CodeAssembler::new(64)?;
     let mut start_label = assembler.create_label();
 
-    // println!("IR:\n{}", block);
+    println!("IR:\n{}", block);
     assembler.set_label(&mut start_label)?;
     codegen_block(&mut state, &mut assembler, block)?;
 
@@ -152,17 +152,17 @@ pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let mut generated_code = result.inner.code_buffer;
     // assert!(generated_code.len() == code_length);
 
-    // let decoder = iced_x86::Decoder::with_ip(
-    //     64,
-    //     &generated_code,
-    //     memory_map.as_ptr() as u64,
-    //     DecoderOptions::NONE,
-    // );
-    //
-    // println!("Generated assembly:");
-    // for instruction in decoder {
-    //     println!("  {:#X}: {}", instruction.ip(), instruction);
-    // }
+    let decoder = iced_x86::Decoder::with_ip(
+        64,
+        &generated_code,
+        memory_map.as_ptr() as u64,
+        DecoderOptions::NONE,
+    );
+
+    println!("Generated assembly:");
+    for instruction in decoder {
+        println!("  {:#X}: {}", instruction.ip(), instruction);
+    }
 
     generated_code.resize(memory_map.len(), 0xcc);
     memory_map.copy_from_slice(&generated_code);
