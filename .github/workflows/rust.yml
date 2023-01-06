@@ -8,6 +8,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v1
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
       - name: Set up cargo cache
         uses: actions/cache@v3
         continue-on-error: false
@@ -20,15 +27,12 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
+
       - name: Check for build errors
         uses: actions-rs/cargo@v1
         with:
           command: check
+
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
