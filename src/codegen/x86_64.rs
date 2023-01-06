@@ -6,12 +6,13 @@ use std::{
 
 use iced_x86::{
     code_asm::{get_gpr64, r8, r9, rax, rbp, rcx, rdi, rdx, rsi, AsmRegister64, CodeAssembler},
-    BlockEncoderOptions, DecoderOptions,
+    BlockEncoderOptions, //DecoderOptions,
 };
 
 use crate::{
     compiler::Function,
     ir,
+    parser::BinaryOperator,
     value::{EncodedValue, Value, ValueEncodeError},
 };
 
@@ -57,6 +58,12 @@ enum SlotValue {
     Register(Rc<RegisterLease>),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ReserveMode {
+    AllowReuse,
+    DenyReuse,
+}
+
 struct CodegenState {
     slot_values: HashMap<ir::Slot, SlotValue>,
     available_registers: BTreeSet<Register>,
@@ -92,16 +99,19 @@ impl CodegenState {
             return Err(CodegenError::NotImplemented("register spilling — no available registers".to_owned()));
         };
 
-        self.reserve_specific_register(register)
+        self.reserve_specific_register(register, ReserveMode::DenyReuse)
     }
 
     fn reserve_specific_register(
         &mut self,
         register: Register,
+        mode: ReserveMode,
     ) -> CodegenResult<Rc<RegisterLease>> {
-        let Some(_) = self.available_registers.take(&register) else {
+        if mode == ReserveMode::DenyReuse && !self.available_registers.contains(&register) {
             return Err(CodegenError::RegisterNotAvailable(register));
-        };
+        }
+
+        self.available_registers.remove(&register);
 
         let lease = RegisterLease(register);
         Ok(Rc::new(lease))
@@ -119,7 +129,7 @@ pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let mut assembler = CodeAssembler::new(64)?;
     let mut start_label = assembler.create_label();
 
-    println!("IR:\n{}", block);
+    // println!("IR:\n{}", block);
     assembler.set_label(&mut start_label)?;
     codegen_block(&mut state, &mut assembler, block)?;
 
@@ -142,17 +152,17 @@ pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let mut generated_code = result.inner.code_buffer;
     // assert!(generated_code.len() == code_length);
 
-    let decoder = iced_x86::Decoder::with_ip(
-        64,
-        &generated_code,
-        memory_map.as_ptr() as u64,
-        DecoderOptions::NONE,
-    );
-
-    println!("Generated assembly:");
-    for instruction in decoder {
-        println!("  {:#X}: {}", instruction.ip(), instruction);
-    }
+    // let decoder = iced_x86::Decoder::with_ip(
+    //     64,
+    //     &generated_code,
+    //     memory_map.as_ptr() as u64,
+    //     DecoderOptions::NONE,
+    // );
+    //
+    // println!("Generated assembly:");
+    // for instruction in decoder {
+    //     println!("  {:#X}: {}", instruction.ip(), instruction);
+    // }
 
     generated_code.resize(memory_map.len(), 0xcc);
     memory_map.copy_from_slice(&generated_code);
@@ -170,7 +180,7 @@ fn codegen_block(
 ) -> CodegenResult<()> {
     assembler.push(rbp)?;
 
-    for instruction in &block.instructions {
+    for instruction in block.instructions() {
         let ir::Instruction {
             destination,
             opcode,
@@ -188,11 +198,11 @@ fn codegen_block(
                 let rhs = slot_to_register(state, assembler, rhs)?;
 
                 match op {
-                    ir::BinaryOperator::Add => {
+                    BinaryOperator::Add => {
                         assembler
                             .add::<AsmRegister64, AsmRegister64>(lhs.to_gpr64(), rhs.to_gpr64())?;
                     }
-                    ir::BinaryOperator::Multiply => {
+                    BinaryOperator::Multiply => {
                         assembler.imul_2::<AsmRegister64, AsmRegister64>(
                             lhs.to_gpr64(),
                             rhs.to_gpr64(),
@@ -245,7 +255,7 @@ fn codegen_block(
 
 type Register = iced_x86::Register;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 struct RegisterLease(pub Register);
 
 impl Into<Register> for RegisterLease {
@@ -279,7 +289,10 @@ fn slot_to_register(
         }
 
         Some(SlotValue::FunctionArgument(index)) => {
-            let register = state.reserve_specific_register(parameter_register(*index)?.into())?;
+            let register = state.reserve_specific_register(
+                parameter_register(*index)?.into(),
+                ReserveMode::AllowReuse,
+            )?;
             Ok(register)
         }
 

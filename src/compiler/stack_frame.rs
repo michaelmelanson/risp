@@ -4,25 +4,19 @@ use std::rc::Rc;
 use crate::compiler::Function;
 use crate::parser::Identifier;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Symbol {
     Argument(usize),
     Function(Rc<Function>, usize),
 }
 
+#[derive(Default, Debug)]
 pub struct StackFrame<'a> {
     parent: Option<&'a StackFrame<'a>>,
     definitions: HashMap<Identifier, Symbol>,
 }
 
 impl<'a> StackFrame<'a> {
-    pub fn new() -> StackFrame<'a> {
-        StackFrame {
-            parent: None,
-            definitions: HashMap::new(),
-        }
-    }
-
     pub fn push(&self) -> StackFrame {
         StackFrame {
             parent: Some(self),

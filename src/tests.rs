@@ -23,7 +23,9 @@ mod test {
     use crate::{evaluator::Evaluator, value::Value};
 
     fn eval(code: &str) -> Value {
-        Evaluator::new().evaluate(code).expect("evaluation failed")
+        Evaluator::default()
+            .evaluate(code)
+            .expect("evaluation failed")
     }
 
     #[test]
@@ -46,6 +48,14 @@ mod test {
             eval("def add_one(x) { 1 + x } add_one(54)"),
             Value::Integer(55)
         );
+    }
+
+    #[test]
+    fn test_reuse_function_argument() {
+        assert_eq!(
+            eval("def square (x) { x * x } square(3)"),
+            Value::Integer(9)
+        )
     }
 
     #[test]

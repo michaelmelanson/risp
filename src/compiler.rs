@@ -1,28 +1,32 @@
 mod error;
 mod function;
+pub mod stack_frame;
 
 use crate::{
     codegen, ir,
     parser::{BinaryOperator, Block, Expression, Identifier, Literal, Statement},
-    stack_frame::{StackFrame, Symbol},
     value::Value,
 };
 
 pub use self::{
     error::{CompileError, CompilerError},
     function::Function,
+    stack_frame::{StackFrame, Symbol},
 };
 
 pub type CompileResult = Result<ir::Slot, CompileError>;
 
-pub fn compile(stack_frame: &StackFrame, block: &Block) -> Result<Function, CompilerError> {
-    println!("AST:\n{:?}\n", block);
+pub fn compile<'a>(
+    stack_frame: &'a mut StackFrame<'_>,
+    block: &Block,
+) -> Result<Function, CompilerError> {
+    // println!("AST:\n{:?}\n", block);
 
-    let mut ir_block = ir::Block::default();
+    let mut ir_block = ir::Block::new(stack_frame);
     let mut result = None;
 
     for statement in &block.0 {
-        result = Some(compile_statement(stack_frame, &mut ir_block, statement)?);
+        result = Some(compile_statement(&mut ir_block, statement)?);
     }
 
     let Some(result ) = result else {
@@ -35,83 +39,61 @@ pub fn compile(stack_frame: &StackFrame, block: &Block) -> Result<Function, Comp
     Ok(function)
 }
 
-fn compile_statement(
-    stack_frame: &StackFrame,
-    block: &mut ir::Block,
-    statement: &Statement,
-) -> CompileResult {
+fn compile_statement(block: &mut ir::Block, statement: &Statement) -> CompileResult {
     match statement {
-        Statement::Expression(expression) => compile_expression(stack_frame, block, expression),
+        Statement::Expression(expression) => compile_expression(block, expression),
         Statement::Definition(_definition) => compile_literal(block, &Literal::Integer(0)),
     }
 }
 
-fn compile_expression(
-    stack_frame: &StackFrame,
-    block: &mut ir::Block,
-    expression: &Expression,
-) -> CompileResult {
+fn compile_expression(block: &mut ir::Block, expression: &Expression) -> CompileResult {
     match expression {
-        Expression::Identifier(identifier) => compile_identifier(stack_frame, block, identifier),
+        Expression::Identifier(identifier) => compile_identifier(block, identifier),
         Expression::FunctionCall(identifier, args) => {
-            compile_function_call(stack_frame, block, identifier, args)
+            compile_function_call(block, identifier, args)
         }
         Expression::Literal(literal) => compile_literal(block, literal),
         Expression::BinaryExpression(lhs, operator, rhs) => {
-            compile_binary_operator_expression(stack_frame, block, lhs, operator, rhs)
+            compile_binary_operator_expression(block, lhs, operator, rhs)
         }
     }
 }
 
 fn compile_identifier(
-    stack_frame: &StackFrame,
     block: &mut ir::Block,
     identifier: &Identifier,
 ) -> Result<ir::Slot, CompileError> {
-    match stack_frame.resolve(identifier) {
-        Some(symbol) => match symbol {
-            Symbol::Argument(index) => {
-                let slot = block.push(ir::Opcode::FunctionArgument(*index));
-                Ok(slot)
-            }
-            Symbol::Function(_function, _arity) => todo!("compile function identifier"),
-        },
+    match block.resolve_to_slot(identifier) {
+        Some(slot) => Ok(slot),
         None => unimplemented!("undefined symbol"),
     }
 }
 
 pub fn compile_binary_operator_expression(
-    stack_frame: &StackFrame,
     block: &mut ir::Block,
     lhs: &Expression,
     operator: &BinaryOperator,
     rhs: &Expression,
 ) -> CompileResult {
-    let lhs_slot = compile_expression(stack_frame, block, lhs)?;
-    let rhs_slot = compile_expression(stack_frame, block, rhs)?;
+    let lhs_slot = compile_expression(block, lhs)?;
+    let rhs_slot = compile_expression(block, rhs)?;
 
-    let operator = match operator {
-        BinaryOperator::Add => ir::BinaryOperator::Add,
-        BinaryOperator::Multiply => ir::BinaryOperator::Multiply,
-    };
-
-    let slot = block.push(ir::Opcode::BinaryOperator(lhs_slot, operator, rhs_slot));
+    let slot = block.push(ir::Opcode::BinaryOperator(lhs_slot, *operator, rhs_slot));
     Ok(slot)
 }
 
 fn compile_function_call(
-    stack_frame: &StackFrame,
     block: &mut ir::Block,
     identifier: &Identifier,
     args: &Vec<Expression>,
 ) -> CompileResult {
     let mut argument_slots = Vec::with_capacity(args.len());
     for arg in args.iter() {
-        let argument_slot = compile_expression(stack_frame, block, arg)?;
+        let argument_slot = compile_expression(block, arg)?;
         argument_slots.push(argument_slot);
     }
 
-    let Some(identifier_symbol) = stack_frame.resolve(&identifier) else {
+    let Some(identifier_symbol) = block.resolve(&identifier) else {
                   return Err(CompileError::UnresolvedSymbol(identifier.clone()));
               };
 
@@ -119,11 +101,11 @@ fn compile_function_call(
                   return Err(CompileError::NotImplemented(format!("calling symbol {:?}", identifier_symbol)));
               };
 
-    if argument_slots.len() != *arity {
+    if argument_slots.len() != arity {
         return Err(CompileError::IncorrectArity(
             identifier.clone(),
             argument_slots.len(),
-            *arity,
+            arity,
         ));
     }
 

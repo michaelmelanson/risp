@@ -3,7 +3,6 @@ mod compiler;
 mod evaluator;
 mod ir;
 mod parser;
-mod stack_frame;
 mod tests;
 mod value;
 
@@ -15,7 +14,7 @@ fn main() {
     let mut readline = rustyline::Editor::<()>::new().expect("readline error");
     let _ = readline.load_history("~/.risp-history");
 
-    let mut evaluator = Evaluator::new();
+    let mut evaluator = Evaluator::default();
 
     loop {
         let line = readline.readline("risp> ");

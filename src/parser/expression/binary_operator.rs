@@ -7,10 +7,19 @@ use crate::parser::{
 
 use super::{parse_factor_expression, Expression};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BinaryOperator {
     Add,
     Multiply,
+}
+
+impl std::fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BinaryOperator::Add => write!(f, "+"),
+            BinaryOperator::Multiply => write!(f, "*"),
+        }
+    }
 }
 
 pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> {

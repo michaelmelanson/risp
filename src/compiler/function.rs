@@ -12,6 +12,20 @@ pub struct Function {
     ptr: codegen::FuncPointer,
 }
 
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.ptr == other.ptr
+    }
+}
+
+impl Eq for Function {}
+
+impl core::hash::Hash for Function {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.ptr.hash(state);
+    }
+}
+
 impl Function {
     pub fn call(&self) -> Value {
         let result = unsafe { (self.ptr)() };
