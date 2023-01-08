@@ -78,8 +78,8 @@ impl<'a, 'b> Block<'a, 'b> {
         }
     }
 
-    pub(crate) fn stack_size(&self) -> usize {
-        self.stack_frame.stack_size()
+    pub(crate) fn stack_slots(&self) -> usize {
+        self.stack_frame.stack_slots()
     }
 }
 

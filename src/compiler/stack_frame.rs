@@ -13,7 +13,7 @@ pub enum Symbol {
 pub struct StackFrame<'a> {
     parent: Option<&'a StackFrame<'a>>,
     definitions: HashMap<Identifier, Symbol>,
-    stack_size: usize,
+    stack_slots: usize,
 }
 
 impl<'a> StackFrame<'a> {
@@ -21,7 +21,7 @@ impl<'a> StackFrame<'a> {
         StackFrame {
             parent: Some(self),
             definitions: HashMap::new(),
-            stack_size: 0,
+            stack_slots: 0,
         }
     }
 
@@ -30,8 +30,8 @@ impl<'a> StackFrame<'a> {
     }
 
     pub fn insert_stack_variable(&mut self, name: &Identifier) -> Symbol {
-        let offset = self.stack_size;
-        self.stack_size += 8;
+        let offset = self.stack_slots;
+        self.stack_slots += 1;
 
         let symbol = Symbol::StackVariable(offset);
         self.insert(name, symbol.clone());
@@ -51,13 +51,13 @@ impl<'a> StackFrame<'a> {
                 _ => Some(symbol.clone()),
             }
         } else if let Some(parent) = self.parent {
-            parent.resolve_with_offset(name, frame_offset + self.stack_size)
+            parent.resolve_with_offset(name, frame_offset + self.stack_slots)
         } else {
             None
         }
     }
 
-    pub(crate) fn stack_size(&self) -> usize {
-        self.stack_size
+    pub(crate) fn stack_slots(&self) -> usize {
+        self.stack_slots
     }
 }

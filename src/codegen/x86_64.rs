@@ -185,8 +185,9 @@ fn codegen_block(
     assembler.push(rbp)?;
     assembler.mov(rbp, rsp)?;
 
-    if block.stack_size() > 0 {
-        assembler.sub(rsp, block.stack_size() as i32)?;
+    if block.stack_slots() > 0 {
+        let stack_size_bytes = block.stack_slots() * 8;
+        assembler.sub(rsp, stack_size_bytes as i32)?;
     }
 
     for instruction in block.instructions() {
