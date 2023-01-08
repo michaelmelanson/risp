@@ -5,7 +5,10 @@ use std::{
 };
 
 use iced_x86::{
-    code_asm::{get_gpr64, r8, r9, rax, rbp, rcx, rdi, rdx, rsi, AsmRegister64, CodeAssembler},
+    code_asm::{
+        dword_ptr, get_gpr64, r8, r9, rax, rbp, rcx, rdi, rdx, rsi, rsp, AsmMemoryOperand,
+        AsmRegister64, CodeAssembler,
+    },
     BlockEncoderOptions, DecoderOptions,
 };
 
@@ -56,6 +59,7 @@ enum SlotValue {
     Literal(Value),
     FunctionArgument(usize),
     Register(Rc<RegisterLease>),
+    StackOffset(usize),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -179,6 +183,11 @@ fn codegen_block(
     block: ir::Block,
 ) -> CodegenResult<()> {
     assembler.push(rbp)?;
+    assembler.mov(rbp, rsp)?;
+
+    if block.stack_size() > 0 {
+        assembler.sub(rsp, block.stack_size() as i32)?;
+    }
 
     for instruction in block.instructions() {
         let ir::Instruction {
@@ -244,9 +253,24 @@ fn codegen_block(
                     get_gpr64(value.0).expect("register is not a General-Purpose Register"),
                 )?;
             }
+
+            ir::Opcode::StackVariable(offset) => {
+                state
+                    .slot_values
+                    .insert(*destination, SlotValue::StackOffset(*offset));
+            }
+            ir::Opcode::AssignToStackVariable(offset, slot) => {
+                let value = slot_to_register(state, assembler, slot)?;
+                assembler.mov(stack_variable(*offset), value.to_gpr64())?;
+
+                state
+                    .slot_values
+                    .insert(*destination, SlotValue::StackOffset(*offset));
+            }
         };
     }
 
+    assembler.mov(rsp, rbp)?;
     assembler.pop(rbp)?;
     assembler.ret()?;
 
@@ -296,9 +320,20 @@ fn slot_to_register(
             Ok(register)
         }
 
+        Some(SlotValue::StackOffset(offset)) => {
+            let offset = *offset;
+            let reg = state.reserve_register()?;
+            assembler.mov(reg.to_gpr64(), stack_variable(offset))?;
+            Ok(reg)
+        }
+
         None => Err(CodegenError::InternalError(format!(
             "slot {} has no value",
             slot
         ))),
     }
+}
+
+fn stack_variable(offset: usize) -> AsmMemoryOperand {
+    dword_ptr(rbp - (8 + offset))
 }

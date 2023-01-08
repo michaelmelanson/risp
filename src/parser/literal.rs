@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::escaped,
-    character::complete::{char, digit1, one_of, space0},
+    character::complete::{char, digit1, multispace0, one_of, space0},
     combinator::{map, map_res},
     sequence::delimited,
 };
@@ -38,14 +38,14 @@ fn literal_string(input: Span) -> ParseResult<Literal> {
 }
 
 fn parse_int(input: Span) -> ParseResult<i64> {
-    let (input, _) = space0(input)?;
+    let (input, _) = multispace0(input)?;
     let (input, position) = position(input)?;
     let (input, value) = map_res(digit1, |s: Span| s.parse::<i64>())(input)?;
     Ok((input, Token { position, value }))
 }
 
 fn literal_int(input: Span) -> ParseResult<Literal> {
-    let (input, _) = space0(input)?;
+    let (input, _) = multispace0(input)?;
     let (input, position) = position(input)?;
     let (input, value) = map(parse_int, |i| Literal::Integer(i.value))(input)?;
 
@@ -58,25 +58,25 @@ pub fn parse_literal(input: Span) -> ParseResult<Literal> {
 
 #[test]
 fn test_literal() {
-    let input = Span::new("\"foo\"");
+    let input = Span::new("  \"foo\"  ");
     assert_eq!(
         parse_literal(input),
         Ok((
-            input.slice(5..),
+            input.slice(7..),
             Token {
-                position: input.slice(0..0),
+                position: input.slice(2..2),
                 value: Literal::String("foo".to_owned())
             }
         ))
     );
 
-    let input = Span::new("1234");
+    let input = Span::new("  1234");
     assert_eq!(
         parse_literal(input),
         Ok((
-            input.slice(4..),
+            input.slice(6..),
             Token {
-                position: input.slice(0..0),
+                position: input.slice(2..2),
                 value: Literal::Integer(1234)
             }
         ))

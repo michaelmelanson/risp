@@ -5,6 +5,9 @@ mod literal;
 
 use nom::branch::alt;
 
+#[cfg(test)]
+use {super::Token, crate::tests::parse_test, nom::Slice};
+
 use self::{
     binary_operator::parse_binary_operator_expression,
     function_call::parse_function_call_expression, identifier::parse_identifier_expression,
@@ -30,7 +33,24 @@ pub fn parse_factor_expression(input: Span) -> ParseResult<Expression> {
     alt((
         bracketed(parse_expression),
         parse_function_call_expression,
-        parse_identifier_expression,
         parse_literal_expression,
+        parse_identifier_expression,
     ))(input)
+}
+
+#[test]
+fn test_expressions_with_identifiers() {
+    parse_test(parse_expression, "x * x\n", |input| {
+        (
+            input.slice(5..),
+            Token {
+                position: input.slice(0..0),
+                value: Expression::BinaryExpression(
+                    Box::new(Expression::Identifier(Identifier::new("x"))),
+                    BinaryOperator::Multiply,
+                    Box::new(Expression::Identifier(Identifier::new("x"))),
+                ),
+            },
+        )
+    })
 }

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     compiler::{StackFrame, Symbol},
     ir,
+    parser::Identifier,
 };
 
 use super::{instruction::Instruction, opcode::Opcode, slot::Slot};
@@ -38,14 +39,19 @@ impl<'a, 'b> Block<'a, 'b> {
         &self.instructions
     }
 
-    pub(crate) fn resolve(&self, identifier: &crate::parser::Identifier) -> Option<Symbol> {
-        self.stack_frame.resolve(identifier).cloned()
+    pub(crate) fn insert_stack_variable(&mut self, name: &Identifier, initial_value: Slot) -> Slot {
+        let Symbol::StackVariable(offset) = self.stack_frame.insert_stack_variable(name) else {
+            panic!("expected stack variable");
+        };
+
+        self.push(ir::Opcode::AssignToStackVariable(offset, initial_value))
     }
 
-    pub(crate) fn resolve_to_slot(
-        &mut self,
-        identifier: &crate::parser::Identifier,
-    ) -> Option<Slot> {
+    pub(crate) fn resolve(&self, identifier: &Identifier) -> Option<Symbol> {
+        self.stack_frame.resolve(identifier)
+    }
+
+    pub(crate) fn resolve_to_slot(&mut self, identifier: &Identifier) -> Option<Slot> {
         match self.resolve(identifier) {
             Some(symbol) => {
                 if let Some(slot) = self.cache.get(&symbol) {
@@ -58,13 +64,22 @@ impl<'a, 'b> Block<'a, 'b> {
                         self.cache.insert(symbol, slot);
                         Some(slot)
                     }
-                    Symbol::Function(_function, _arity) => todo!("compile function identifier"),
+                    Symbol::Function(_function, _arity) => todo!("resolve function to slot"),
+                    Symbol::StackVariable(offset) => {
+                        let slot = self.push(ir::Opcode::StackVariable(offset));
+                        self.cache.insert(symbol, slot);
+                        Some(slot)
+                    }
                 };
 
                 slot
             }
             None => unimplemented!("undefined symbol"),
         }
+    }
+
+    pub(crate) fn stack_size(&self) -> usize {
+        self.stack_frame.stack_size()
     }
 }
 

@@ -27,30 +27,34 @@ fn keyword(k: &str) -> impl FnMut(Span) -> ParseResult<Span> + '_ {
     }
 }
 
-pub fn newline<'a>(input: Span<'a>) -> ParseResult<'a, char> {
-    token('\n')(input)
-}
-
-pub fn comma<'a>(input: Span<'a>) -> ParseResult<'a, char> {
+pub fn comma_token<'a>(input: Span<'a>) -> ParseResult<'a, char> {
     token(',')(input)
 }
 
-pub fn open_brace<'a>(input: Span<'a>) -> ParseResult<'a, char> {
+pub fn open_brace_token<'a>(input: Span<'a>) -> ParseResult<'a, char> {
     token('{')(input)
 }
 
-pub fn close_brace<'a>(input: Span<'a>) -> ParseResult<'a, char> {
+pub fn close_brace_token<'a>(input: Span<'a>) -> ParseResult<'a, char> {
     token('}')(input)
 }
 
-pub fn add<'a>(input: Span<'a>) -> ParseResult<'a, char> {
+pub fn add_token<'a>(input: Span<'a>) -> ParseResult<'a, char> {
     token('+')(input)
 }
 
-pub fn multiply<'a>(input: Span<'a>) -> ParseResult<'a, char> {
+pub fn multiply_token<'a>(input: Span<'a>) -> ParseResult<'a, char> {
     token('*')(input)
 }
 
-pub fn def<'a>(input: Span<'a>) -> ParseResult<'a, Span<'a>> {
+pub fn equal_token<'a>(input: Span<'a>) -> ParseResult<'a, char> {
+    token('=')(input)
+}
+
+pub fn def_keyword<'a>(input: Span<'a>) -> ParseResult<'a, Span<'a>> {
     keyword("def")(input)
+}
+
+pub fn let_keyword<'a>(input: Span<'a>) -> ParseResult<'a, Span<'a>> {
+    keyword("let")(input)
 }

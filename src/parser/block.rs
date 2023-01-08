@@ -1,9 +1,9 @@
-use nom::{multi::separated_list0, sequence::delimited};
+use nom::{multi::many0, sequence::delimited};
 use nom_locate::position;
 
 use super::{
     parse_statement,
-    tokens::{close_brace, newline, open_brace},
+    tokens::{close_brace_token, open_brace_token},
     ParseResult, Span, Statement, Token,
 };
 
@@ -11,12 +11,12 @@ use super::{
 pub struct Block(pub Vec<Statement>);
 
 pub fn parse_block(input: Span) -> ParseResult<Block> {
-    delimited(open_brace, parse_block_inner, close_brace)(input)
+    delimited(open_brace_token, parse_block_inner, close_brace_token)(input)
 }
 
 pub fn parse_block_inner(input: Span) -> ParseResult<Block> {
     let (input, position) = position(input)?;
-    let (input, statements) = separated_list0(newline, parse_statement)(input)?;
+    let (input, statements) = many0(parse_statement)(input)?;
 
     let statements = statements.iter().map(|t| t.value.clone()).collect();
     Ok((

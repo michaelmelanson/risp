@@ -45,7 +45,12 @@ mod test {
     #[test]
     fn test_function_evaluation() {
         assert_eq!(
-            eval("def add_one(x) { 1 + x } add_one(54)"),
+            eval(
+                "def add_one(x) { 
+                    1 + x
+                } 
+                add_one(54)"
+            ),
             Value::Integer(55)
         );
     }
@@ -64,5 +69,13 @@ mod test {
             eval("\"Hello world!\""),
             Value::String("Hello world!".to_string())
         );
+    }
+
+    #[test]
+    fn test_let() {
+        assert_eq!(
+            eval("def square (x) { let result = x * x\n  result }\nsquare(3)"),
+            Value::Integer(9)
+        )
     }
 }

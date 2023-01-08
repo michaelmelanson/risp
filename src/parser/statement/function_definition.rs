@@ -3,13 +3,13 @@ use nom_locate::position;
 
 use crate::parser::{
     parse_block, parse_identifier,
-    tokens::{comma, def},
+    tokens::{comma_token, def_keyword},
     util::bracketed,
     Block, Identifier, ParseResult, Span, Token,
 };
 
 #[cfg(test)]
-use crate::tests::parse_test;
+use crate::{parser::VariableDeclaration, tests::parse_test};
 
 use super::Statement;
 
@@ -27,13 +27,13 @@ pub fn parse_function_definition_statement(input: Span) -> ParseResult<Statement
         input,
         Token {
             position: function_definition.position,
-            value: Statement::Definition(function_definition.value),
+            value: Statement::FunctionDefinition(function_definition.value),
         },
     ))
 }
 
 pub fn parse_function_definition(input: Span) -> ParseResult<FunctionDefinition> {
-    let (input, def_token) = def(input)?;
+    let (input, def_token) = def_keyword(input)?;
     let (input, name) = parse_identifier(input)?;
     let (input, args) = parse_arguments_list(input)?;
     let (input, body) = parse_block(input)?;
@@ -54,14 +54,14 @@ pub fn parse_function_definition(input: Span) -> ParseResult<FunctionDefinition>
 fn parse_arguments_list(input: Span) -> ParseResult<Vec<Identifier>> {
     let (input, _) = space0(input)?;
     let (input, position) = position(input)?;
-    let (input, value) = bracketed(separated_list0(comma, parse_identifier))(input)?;
+    let (input, value) = bracketed(separated_list0(comma_token, parse_identifier))(input)?;
 
     let value = value.iter().map(|t| t.value.clone()).collect();
     Ok((input, Token { position, value }))
 }
 
 #[test]
-fn test_function_definition() {
+fn test_function_definition_1() {
     use crate::parser::{BinaryOperator, Expression, Literal, Statement};
     use nom::Slice;
 
@@ -81,6 +81,72 @@ fn test_function_definition() {
                             BinaryOperator::Add,
                             Box::new(Expression::Identifier(Identifier("x".to_string()))),
                         ))]),
+                    },
+                },
+            )
+        },
+    )
+}
+
+#[test]
+fn test_function_definition_2() {
+    use crate::parser::{BinaryOperator, Expression, Literal, Statement};
+    use nom::Slice;
+
+    parse_test(
+        parse_function_definition,
+        "def add_one(x) {
+            1 + x 
+        }",
+        |input| {
+            (
+                input.slice(45..),
+                Token {
+                    position: input.slice(0..0),
+                    value: FunctionDefinition {
+                        name: Identifier("add_one".to_string()),
+                        args: vec![Identifier("x".to_string())],
+                        body: Block(vec![Statement::Expression(Expression::BinaryExpression(
+                            Box::new(Expression::Literal(Literal::Integer(1))),
+                            BinaryOperator::Add,
+                            Box::new(Expression::Identifier(Identifier("x".to_string()))),
+                        ))]),
+                    },
+                },
+            )
+        },
+    )
+}
+
+#[test]
+fn test_function_definition_3() {
+    use crate::parser::{BinaryOperator, Expression, Statement};
+    use nom::Slice;
+
+    parse_test(
+        parse_function_definition,
+        "def square (x) {\n  let result = x * x\n  result\n}",
+        |input| {
+            (
+                input.slice(48..),
+                Token {
+                    position: input.slice(0..0),
+                    value: FunctionDefinition {
+                        name: Identifier("square".to_string()),
+                        args: vec![Identifier("x".to_string())],
+                        body: Block(vec![
+                            Statement::VariableDeclaration(VariableDeclaration {
+                                name: Identifier::new("result"),
+                                value: Expression::BinaryExpression(
+                                    Box::new(Expression::Identifier(Identifier("x".to_string()))),
+                                    BinaryOperator::Multiply,
+                                    Box::new(Expression::Identifier(Identifier("x".to_string()))),
+                                ),
+                            }),
+                            Statement::Expression(Expression::Identifier(Identifier::new(
+                                "result",
+                            ))),
+                        ]),
                     },
                 },
             )

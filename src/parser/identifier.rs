@@ -1,7 +1,7 @@
 use nom::{
-    character::complete::{one_of, space0},
-    combinator::map,
-    multi::many1,
+    character::complete::multispace0,
+    error::{ErrorKind, ParseError},
+    AsChar, IResult, InputTakeAtPosition,
 };
 
 // we use this but Rust Analyzer doesn't notice it...?
@@ -14,6 +14,12 @@ use super::{ParseResult, Span, Token};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Identifier(pub String);
+impl Identifier {
+    #[allow(unused)]
+    pub(crate) fn new(name: impl ToString) -> Identifier {
+        Self(name.to_string())
+    }
+}
 
 impl std::fmt::Display for Identifier {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
@@ -21,31 +27,37 @@ impl std::fmt::Display for Identifier {
     }
 }
 
-pub fn parse_identifier(input: Span) -> ParseResult<Identifier> {
-    let (input, _) = space0(input)?;
-    let chars = "abcdefghijklmnopqrstuvwxyz-_+*/!@#$%^&*<>=";
-    let (input, position) = position(input)?;
-    let (input, value) = map(many1(one_of(chars)), move |v| {
-        Identifier(v.into_iter().collect())
-    })(input)?;
+pub fn identifier_name<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
+where
+    T: InputTakeAtPosition,
+    <T as InputTakeAtPosition>::Item: AsChar,
+{
+    input.split_at_position1_complete(
+        |item| {
+            let item = item.as_char();
+            !item.is_alphanum() && item.as_char() != '_'
+        },
+        ErrorKind::AlphaNumeric,
+    )
+}
 
-    Ok((input, Token { position, value }))
+pub fn parse_identifier(input: Span) -> ParseResult<Identifier> {
+    let (input, _) = multispace0(input)?;
+    let (input, position) = position(input)?;
+    let (input, value) = identifier_name(input)?;
+
+    println!("Identifier: {:?}", value);
+    Ok((
+        input,
+        Token {
+            position,
+            value: Identifier(value.to_string()),
+        },
+    ))
 }
 
 #[test]
 fn test_identifier() {
-    let input = Span::new("+");
-    assert_eq!(
-        parse_identifier(input),
-        Ok((
-            input.slice(1..),
-            Token {
-                position: input.slice(0..0),
-                value: Identifier("+".to_owned())
-            }
-        ))
-    );
-
     let input = Span::new("foo");
     assert_eq!(
         parse_identifier(input),
@@ -82,14 +94,14 @@ fn test_identifier() {
         ))
     );
 
-    let input = Span::new("foo-bar");
+    let input = Span::new("foo_bar");
     assert_eq!(
         parse_identifier(input),
         Ok((
             input.slice(7..),
             Token {
                 position: input.slice(0..0),
-                value: Identifier("foo-bar".to_owned())
+                value: Identifier("foo_bar".to_owned())
             }
         ))
     );

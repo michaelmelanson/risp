@@ -1,7 +1,7 @@
 use nom::{multi::fold_many0, sequence::preceded};
 
 use crate::parser::{
-    tokens::{add, multiply},
+    tokens::{add_token, multiply_token},
     ParseResult, Span, Token,
 };
 
@@ -25,7 +25,7 @@ impl std::fmt::Display for BinaryOperator {
 pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> {
     let (input, lhs) = parse_expression_term(input)?;
     let (input, value) = fold_many0(
-        preceded(add, parse_expression_term),
+        preceded(add_token, parse_expression_term),
         || lhs.clone(),
         |acc, rhs| Token {
             position: acc.position,
@@ -37,13 +37,14 @@ pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> 
         },
     )(input)?;
 
+    println!("Binary expression: {:?}", value);
     Ok((input, value))
 }
 
 pub fn parse_expression_term(input: Span) -> ParseResult<Expression> {
     let (input, lhs) = parse_factor_expression(input)?;
     let (input, value) = fold_many0(
-        preceded(multiply, parse_factor_expression),
+        preceded(multiply_token, parse_factor_expression),
         || lhs.clone(),
         |acc, rhs| Token {
             position: acc.position,
@@ -55,6 +56,7 @@ pub fn parse_expression_term(input: Span) -> ParseResult<Expression> {
         },
     )(input)?;
 
+    println!("Expression term: {:?}", value);
     Ok((input, value))
 }
 

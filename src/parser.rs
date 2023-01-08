@@ -13,7 +13,7 @@ pub use self::{
     expression::{parse_expression, BinaryOperator, Expression},
     identifier::{parse_identifier, Identifier},
     literal::{parse_literal, Literal},
-    statement::{parse_statement, Statement},
+    statement::{parse_statement, Statement, VariableDeclaration},
 };
 
 pub type Span<'a> = nom_locate::LocatedSpan<&'a str>;

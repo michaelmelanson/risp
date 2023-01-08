@@ -12,6 +12,9 @@ pub enum Opcode {
 
     BinaryOperator(Slot, BinaryOperator, Slot),
     CallFunction(Rc<Function>, Vec<Slot>),
+    StackVariable(usize),
+
+    AssignToStackVariable(usize, Slot),
 }
 
 impl std::fmt::Display for Opcode {
@@ -33,6 +36,8 @@ impl std::fmt::Display for Opcode {
             }
             Opcode::FunctionArgument(index) => write!(f, "arg {}", index),
             Opcode::Return(slot) => write!(f, "return {}", slot),
+            Opcode::StackVariable(offset) => write!(f, "stack@{}", offset),
+            Opcode::AssignToStackVariable(offset, slot) => write!(f, "stack@{} = {}", offset, slot),
         }
     }
 }

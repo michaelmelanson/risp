@@ -1,7 +1,7 @@
 use std::ops::{RangeFrom, RangeTo};
 
 use nom::{
-    character::complete::{char, space0},
+    character::complete::{char, multispace0},
     error::ParseError,
     sequence::{preceded, terminated},
     AsChar, IResult, InputIter, Offset, Slice,
@@ -27,10 +27,9 @@ pub fn ignore_whitespace<'a, O: std::fmt::Debug + std::cmp::PartialEq>(
     mut parser: impl FnMut(Span<'a>) -> IResult<Span<'a>, O, (Span<'a>, nom::error::ErrorKind)>,
 ) -> impl FnMut(Span<'a>) -> ParseResult<'a, O> {
     move |input| {
-        let (input, _) = space0(input)?;
+        let (input, _) = multispace0(input)?;
         let (input, position) = position(input)?;
         let (input, value) = parser(input)?;
-        let (input, _) = space0(input)?;
         Ok((input, Token { position, value }))
     }
 }

@@ -41,19 +41,20 @@ impl<'a> Evaluator<'a> {
         statement: &Statement,
     ) -> Result<(), EvaluationError<'b>> {
         match statement {
-            Statement::Definition(ref definition) => {
+            Statement::FunctionDefinition(ref definition) => {
                 let mut stack_frame = self.stack_frame.push();
 
                 for (index, arg) in definition.args.iter().enumerate() {
-                    stack_frame.insert(arg.clone(), Symbol::Argument(index));
+                    stack_frame.insert(arg, Symbol::Argument(index));
                 }
 
                 let function = compiler::compile(&mut stack_frame, &definition.body)?;
                 let symbol = Symbol::Function(Rc::new(function), definition.args.len());
                 println!("Function {} defined", definition.name);
-                self.stack_frame.insert(definition.name.clone(), symbol);
+                self.stack_frame.insert(&definition.name, symbol);
             }
-            Statement::Expression(ref _expression) => {}
+            Statement::VariableDeclaration(_declaration) => todo!("evaluate variable declaration"),
+            Statement::Expression(_expression) => {}
         }
         Ok(())
     }

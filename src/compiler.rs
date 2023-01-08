@@ -4,7 +4,9 @@ pub mod stack_frame;
 
 use crate::{
     codegen, ir,
-    parser::{BinaryOperator, Block, Expression, Identifier, Literal, Statement},
+    parser::{
+        BinaryOperator, Block, Expression, Identifier, Literal, Statement, VariableDeclaration,
+    },
     value::Value,
 };
 
@@ -42,8 +44,20 @@ pub fn compile<'a>(
 fn compile_statement(block: &mut ir::Block, statement: &Statement) -> CompileResult {
     match statement {
         Statement::Expression(expression) => compile_expression(block, expression),
-        Statement::Definition(_definition) => compile_literal(block, &Literal::Integer(0)),
+        Statement::FunctionDefinition(_definition) => compile_literal(block, &Literal::Integer(0)),
+        Statement::VariableDeclaration(declaration) => {
+            compile_variable_declaration(block, declaration)
+        }
     }
+}
+
+fn compile_variable_declaration(
+    block: &mut ir::Block,
+    declaration: &VariableDeclaration,
+) -> CompileResult {
+    let initial_value = compile_expression(block, &declaration.value)?;
+    let variable = block.insert_stack_variable(&declaration.name, initial_value);
+    Ok(variable)
 }
 
 fn compile_expression(block: &mut ir::Block, expression: &Expression) -> CompileResult {
