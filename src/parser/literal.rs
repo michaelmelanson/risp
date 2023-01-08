@@ -14,7 +14,7 @@ use nom_locate::position;
 
 use super::{ParseResult, Span, Token};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Literal {
     String(String),
     Integer(i64),

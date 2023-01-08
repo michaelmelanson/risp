@@ -283,9 +283,9 @@ type Register = iced_x86::Register;
 #[derive(Clone, PartialEq, Eq)]
 struct RegisterLease(pub Register);
 
-impl Into<Register> for RegisterLease {
-    fn into(self) -> Register {
-        self.0
+impl From<RegisterLease> for Register {
+    fn from(lease: RegisterLease) -> Self {
+        lease.0
     }
 }
 
@@ -307,7 +307,7 @@ fn slot_to_register(
             let value: EncodedValue = literal.try_into().map_err(CodegenError::ValueEncodeError)?;
             let reg = state.reserve_register()?;
 
-            let value = unsafe { value.as_u64() };
+            let value = unsafe { value.encoded_value() };
             assembler.mov(reg.to_gpr64(), value)?;
 
             Ok(reg)

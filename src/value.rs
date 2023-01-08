@@ -29,9 +29,9 @@ impl TryFrom<u64> for ValueType {
     }
 }
 
-impl Into<u64> for ValueType {
-    fn into(self) -> u64 {
-        match self {
+impl From<ValueType> for u64 {
+    fn from(value: ValueType) -> Self {
+        match value {
             ValueType::Integer => 0,
             ValueType::String => 1,
         }
@@ -44,9 +44,9 @@ pub enum Value {
     String(String),
 }
 
-impl Into<ValueType> for Value {
-    fn into(self) -> ValueType {
-        match self {
+impl From<Value> for ValueType {
+    fn from(value: Value) -> Self {
+        match value {
             Value::Integer(_) => ValueType::Integer,
             Value::String(_) => ValueType::String,
         }
@@ -63,7 +63,15 @@ impl EncodedValue {
     const VALUE_MASK: u64 = (1 << Self::VALUE_BITS) - 1;
     const TYPE_MASK: u64 = !Self::VALUE_MASK;
 
-    pub unsafe fn as_u64(self) -> u64 {
+    // Returns the encoded value.
+    //
+    // This is unsafe and consumes the value, because it requires whoever
+    // calls it to ensure that the value ends up being decoded again so it
+    // gets properly dropped. If not then memory will leak.
+    //
+    // It also must only be decoded exactly once, or else the memory will be
+    // dropped more than once which will crash the program.
+    pub unsafe fn encoded_value(self) -> u64 {
         self.0
     }
 }
@@ -117,7 +125,7 @@ impl TryFrom<EncodedValue> for Value {
             ValueType::String => {
                 let ptr = value as u64 as *mut String;
                 let boxed_str = unsafe { Box::from_raw(ptr) };
-                let string = *boxed_str.clone();
+                let string = *boxed_str;
                 Ok(Value::String(string))
             }
         }

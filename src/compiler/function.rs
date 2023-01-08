@@ -35,8 +35,8 @@ impl Function {
         }
     }
 
-    pub fn address(&self) -> u64 {
-        self.ptr as u64
+    pub fn address(&self) -> usize {
+        self.ptr as usize
     }
 
     pub fn new(memory_map: Mmap, ptr: FuncPointer) -> Self {

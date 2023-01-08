@@ -29,10 +29,10 @@ impl<'a> Evaluator<'a> {
         let function = compiler::compile(&mut self.stack_frame, &block.value)?;
         let result = function.call();
 
-        if *remainder == "" {
+        if remainder.is_empty() {
             Ok(result)
         } else {
-            self.evaluate(*remainder)
+            self.evaluate(remainder.fragment())
         }
     }
 

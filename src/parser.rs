@@ -20,7 +20,7 @@ pub type Span<'a> = nom_locate::LocatedSpan<&'a str>;
 pub type ParseResult<'a, O, E = (Span<'a>, nom::error::ErrorKind), I = Span<'a>> =
     nom::IResult<I, Token<'a, O>, E>;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token<'a, T>
 where
     T: std::fmt::Debug + PartialEq,

@@ -107,7 +107,7 @@ fn compile_function_call(
         argument_slots.push(argument_slot);
     }
 
-    let Some(identifier_symbol) = block.resolve(&identifier) else {
+    let Some(identifier_symbol) = block.resolve(identifier) else {
                   return Err(CompileError::UnresolvedSymbol(identifier.clone()));
               };
 
@@ -123,7 +123,7 @@ fn compile_function_call(
         ));
     }
 
-    let return_value_slot = block.push(ir::Opcode::CallFunction(function.clone(), argument_slots));
+    let return_value_slot = block.push(ir::Opcode::CallFunction(function, argument_slots));
     Ok(return_value_slot)
 }
 

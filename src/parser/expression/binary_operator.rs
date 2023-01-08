@@ -7,7 +7,7 @@ use crate::parser::{
 
 use super::{parse_factor_expression, Expression};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOperator {
     Add,
     Multiply,

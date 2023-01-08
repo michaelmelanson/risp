@@ -58,7 +58,7 @@ impl<'a, 'b> Block<'a, 'b> {
                     return Some(*slot);
                 }
 
-                let slot = match symbol {
+                match symbol {
                     Symbol::Argument(index) => {
                         let slot = self.push(ir::Opcode::FunctionArgument(index));
                         self.cache.insert(symbol, slot);
@@ -70,9 +70,7 @@ impl<'a, 'b> Block<'a, 'b> {
                         self.cache.insert(symbol, slot);
                         Some(slot)
                     }
-                };
-
-                slot
+                }
             }
             None => unimplemented!("undefined symbol"),
         }
@@ -86,7 +84,7 @@ impl<'a, 'b> Block<'a, 'b> {
 impl<'a, 'b> std::fmt::Display for Block<'a, 'b> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for instruction in &self.instructions {
-            write!(f, "{} = {}\n", instruction.destination, instruction.opcode)?;
+            writeln!(f, "{} = {}", instruction.destination, instruction.opcode)?;
         }
 
         Ok(())
