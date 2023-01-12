@@ -2,13 +2,14 @@ use std::rc::Rc;
 
 use crate::{compiler::Function, parser::BinaryOperator, value::Value};
 
-use super::slot::Slot;
+use super::{jump_condition::JumpCondition, slot::Slot, Label};
 
 #[derive(Debug)]
 pub enum Opcode {
     Literal(Value),
     FunctionArgument(usize),
     Return(Slot),
+    Jump(JumpCondition, Label),
 
     BinaryOperator(Slot, BinaryOperator, Slot),
     CallFunction(Rc<Function>, Vec<Slot>),
@@ -38,6 +39,7 @@ impl std::fmt::Display for Opcode {
             Opcode::Return(slot) => write!(f, "return {}", slot),
             Opcode::StackVariable(offset) => write!(f, "stack@{}", offset),
             Opcode::AssignToStackVariable(offset, slot) => write!(f, "stack@{} = {}", offset, slot),
+            Opcode::Jump(condition, label) => write!(f, "jump {} to {}", condition, label),
         }
     }
 }

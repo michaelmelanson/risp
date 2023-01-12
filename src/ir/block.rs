@@ -6,7 +6,7 @@ use crate::{
     parser::Identifier,
 };
 
-use super::{instruction::Instruction, opcode::Opcode, slot::Slot};
+use super::{instruction::Instruction, opcode::Opcode, slot::Slot, Label};
 
 #[derive(Debug)]
 pub struct Block<'a, 'b> {
@@ -27,8 +27,12 @@ impl<'a, 'b> Block<'a, 'b> {
     pub fn push(&mut self, opcode: Opcode) -> Slot {
         let destination = self.slot();
         self.instructions
-            .push(Instruction::new(destination, opcode));
+            .push(Instruction::opcode(destination, opcode));
         destination
+    }
+
+    pub fn set_label(&mut self, label: Label) {
+        self.instructions.push(Instruction::label(label));
     }
 
     fn slot(&mut self) -> Slot {
@@ -84,7 +88,17 @@ impl<'a, 'b> Block<'a, 'b> {
 impl<'a, 'b> std::fmt::Display for Block<'a, 'b> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for instruction in &self.instructions {
-            writeln!(f, "{} = {}", instruction.destination, instruction.opcode)?;
+            match instruction {
+                Instruction::Label(label) => {
+                    writeln!(f, "{}:", label)?;
+                }
+                Instruction::Opcode {
+                    destination,
+                    opcode,
+                } => {
+                    writeln!(f, "  {} = {}", destination, opcode)?;
+                }
+            }
         }
 
         Ok(())

@@ -1,16 +1,20 @@
-use super::{opcode::Opcode, slot::Slot};
+use super::{opcode::Opcode, slot::Slot, Label};
 
 #[derive(Debug)]
-pub struct Instruction {
-    pub destination: Slot,
-    pub opcode: Opcode,
+pub enum Instruction {
+    Label(Label),
+    Opcode { destination: Slot, opcode: Opcode },
 }
 
 impl Instruction {
-    pub fn new(destination: Slot, opcode: Opcode) -> Self {
-        Self {
+    pub fn opcode(destination: Slot, opcode: Opcode) -> Self {
+        Self::Opcode {
             destination,
             opcode,
         }
+    }
+
+    pub fn label(label: Label) -> Self {
+        Self::Label(label)
     }
 }

@@ -58,3 +58,15 @@ pub fn def_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
 pub fn let_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
     keyword("let")(input)
 }
+
+pub fn if_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
+    keyword("if")(input)
+}
+
+pub fn else_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
+    keyword("else")(input)
+}
+
+pub fn return_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
+    keyword("return")(input)
+}

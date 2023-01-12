@@ -71,6 +71,7 @@ enum ReserveMode {
 struct CodegenState {
     slot_values: HashMap<ir::Slot, SlotValue>,
     available_registers: BTreeSet<Register>,
+    labels: HashMap<ir::Label, iced_x86::code_asm::CodeLabel>,
 }
 
 impl CodegenState {
@@ -95,7 +96,18 @@ impl CodegenState {
         Self {
             slot_values: HashMap::new(),
             available_registers,
+            labels: HashMap::new(),
         }
+    }
+
+    fn label(
+        &mut self,
+        assembler: &mut CodeAssembler,
+        label: &ir::Label,
+    ) -> &mut iced_x86::code_asm::CodeLabel {
+        self.labels
+            .entry(*label)
+            .or_insert_with(|| assembler.create_label())
     }
 
     fn reserve_register(&mut self) -> CodegenResult<Rc<RegisterLease>> {
@@ -191,89 +203,110 @@ fn codegen_block(
     }
 
     for instruction in block.instructions() {
-        let ir::Instruction {
-            destination,
-            opcode,
-        } = instruction;
-
-        match opcode {
-            ir::Opcode::Literal(literal) => {
-                state
-                    .slot_values
-                    .insert(*destination, SlotValue::Literal(literal.clone()));
+        match instruction {
+            ir::Instruction::Label(label) => {
+                let label = state.label(assembler, label);
+                assembler.set_label(label)?;
             }
-
-            ir::Opcode::BinaryOperator(lhs, op, rhs) => {
-                let lhs = slot_to_register(state, assembler, lhs)?;
-                let rhs = slot_to_register(state, assembler, rhs)?;
-
-                match op {
-                    BinaryOperator::Add => {
-                        assembler
-                            .add::<AsmRegister64, AsmRegister64>(lhs.to_gpr64(), rhs.to_gpr64())?;
+            ir::Instruction::Opcode {
+                destination,
+                opcode,
+            } => {
+                match opcode {
+                    ir::Opcode::Literal(literal) => {
+                        state
+                            .slot_values
+                            .insert(*destination, SlotValue::Literal(literal.clone()));
                     }
-                    BinaryOperator::Multiply => {
-                        assembler.imul_2::<AsmRegister64, AsmRegister64>(
-                            lhs.to_gpr64(),
-                            rhs.to_gpr64(),
+
+                    ir::Opcode::BinaryOperator(lhs, op, rhs) => {
+                        let lhs = slot_to_register(state, assembler, lhs)?;
+                        let rhs = slot_to_register(state, assembler, rhs)?;
+
+                        match op {
+                            BinaryOperator::Add => {
+                                assembler.add::<AsmRegister64, AsmRegister64>(
+                                    lhs.to_gpr64(),
+                                    rhs.to_gpr64(),
+                                )?;
+                            }
+                            BinaryOperator::Multiply => {
+                                assembler.imul_2::<AsmRegister64, AsmRegister64>(
+                                    lhs.to_gpr64(),
+                                    rhs.to_gpr64(),
+                                )?;
+                            }
+                        }
+
+                        state
+                            .slot_values
+                            .insert(*destination, SlotValue::Register(lhs));
+                    }
+
+                    ir::Opcode::CallFunction(func, args) => {
+                        for (index, arg) in args.iter().enumerate() {
+                            let dest_register = parameter_register(index)?;
+                            let arg_register = slot_to_register(state, assembler, arg)?;
+                            assembler.mov::<AsmRegister64, AsmRegister64>(
+                                dest_register,
+                                arg_register.to_gpr64(),
+                            )?;
+                        }
+
+                        assembler.call(func.address() as u64)?;
+                        state.slot_values.insert(
+                            *destination,
+                            SlotValue::Register(Rc::new(RegisterLease(Register::RAX))),
+                        );
+                    }
+
+                    ir::Opcode::FunctionArgument(index) => {
+                        state
+                            .slot_values
+                            .insert(*destination, SlotValue::FunctionArgument(*index));
+                    }
+                    ir::Opcode::Return(slot) => {
+                        let value = slot_to_register(state, assembler, slot)?;
+                        assembler.mov(
+                            rax,
+                            get_gpr64(value.0).expect("register is not a General-Purpose Register"),
                         )?;
+                        assembler.mov(rsp, rbp)?;
+                        assembler.pop(rbp)?;
+                        assembler.ret()?;
                     }
-                }
 
-                state
-                    .slot_values
-                    .insert(*destination, SlotValue::Register(lhs));
-            }
+                    ir::Opcode::StackVariable(offset) => {
+                        state
+                            .slot_values
+                            .insert(*destination, SlotValue::StackOffset(*offset));
+                    }
+                    ir::Opcode::AssignToStackVariable(offset, slot) => {
+                        let value = slot_to_register(state, assembler, slot)?;
+                        assembler.mov(stack_variable(*offset), value.to_gpr64())?;
 
-            ir::Opcode::CallFunction(func, args) => {
-                for (index, arg) in args.iter().enumerate() {
-                    let dest_register = parameter_register(index)?;
-                    let arg_register = slot_to_register(state, assembler, arg)?;
-                    assembler.mov::<AsmRegister64, AsmRegister64>(
-                        dest_register,
-                        arg_register.to_gpr64(),
-                    )?;
-                }
+                        state
+                            .slot_values
+                            .insert(*destination, SlotValue::StackOffset(*offset));
+                    }
 
-                assembler.call(func.address() as u64)?;
-                state.slot_values.insert(
-                    *destination,
-                    SlotValue::Register(Rc::new(RegisterLease(Register::RAX))),
-                );
+                    ir::Opcode::Jump(condition, label) => {
+                        let label = *state.label(assembler, label);
+                        match condition {
+                            ir::JumpCondition::Unconditional => {
+                                assembler.jmp(label)?;
+                            }
+                            ir::JumpCondition::IfZero(slot) => {
+                                let slot_register = slot_to_register(state, assembler, slot)?;
+                                assembler.cmp(slot_register.to_gpr64(), 0)?;
+                                assembler.je(label)?;
+                            }
+                        };
+                    }
+                };
             }
-
-            ir::Opcode::FunctionArgument(index) => {
-                state
-                    .slot_values
-                    .insert(*destination, SlotValue::FunctionArgument(*index));
-            }
-            ir::Opcode::Return(slot) => {
-                let value = slot_to_register(state, assembler, slot)?;
-                assembler.mov(
-                    rax,
-                    get_gpr64(value.0).expect("register is not a General-Purpose Register"),
-                )?;
-            }
-
-            ir::Opcode::StackVariable(offset) => {
-                state
-                    .slot_values
-                    .insert(*destination, SlotValue::StackOffset(*offset));
-            }
-            ir::Opcode::AssignToStackVariable(offset, slot) => {
-                let value = slot_to_register(state, assembler, slot)?;
-                assembler.mov(stack_variable(*offset), value.to_gpr64())?;
-
-                state
-                    .slot_values
-                    .insert(*destination, SlotValue::StackOffset(*offset));
-            }
-        };
+        }
     }
-
-    assembler.mov(rsp, rbp)?;
-    assembler.pop(rbp)?;
-    assembler.ret()?;
 
     Ok(())
 }

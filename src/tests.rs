@@ -78,4 +78,20 @@ mod test {
             Value::Integer(9)
         )
     }
+
+    #[test]
+    fn test_if() {
+        assert_eq!(
+            eval(
+                "
+            def is_one(x) { 
+                if x {
+                    return 1
+                }
+                return 0
+            } is_one(1)"
+            ),
+            Value::Integer(1)
+        );
+    }
 }

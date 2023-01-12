@@ -5,7 +5,8 @@ pub mod stack_frame;
 use crate::{
     codegen, ir,
     parser::{
-        BinaryOperator, Block, Expression, Identifier, Literal, Statement, VariableDeclaration,
+        BinaryOperator, Block, Condition, Expression, Identifier, Literal, Statement,
+        VariableDeclaration,
     },
     value::Value,
 };
@@ -25,16 +26,7 @@ pub fn compile<'a>(
     println!("AST:\n{:?}\n", block);
 
     let mut ir_block = ir::Block::new(stack_frame);
-    let mut result = None;
-
-    for statement in &block.0 {
-        result = Some(compile_statement(&mut ir_block, statement)?);
-    }
-
-    let Some(result ) = result else {
-        unimplemented!("empty block");
-    };
-
+    let result = compile_block(&mut ir_block, block)?;
     ir_block.push(ir::Opcode::Return(result));
 
     let function = codegen::codegen(ir_block)?;
@@ -48,7 +40,68 @@ fn compile_statement(block: &mut ir::Block, statement: &Statement) -> CompileRes
         Statement::VariableDeclaration(declaration) => {
             compile_variable_declaration(block, declaration)
         }
+        Statement::Condition(condition) => compile_condition_statement(block, condition),
+        Statement::Return(result) => compile_return_statement(block, result),
     }
+}
+
+fn compile_return_statement(block: &mut ir::Block, result: &Expression) -> CompileResult {
+    let result = compile_expression(block, result)?;
+    block.push(ir::Opcode::Return(result));
+    Ok(result)
+}
+
+fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> CompileResult {
+    let next_branch = ir::Label::new();
+    let end_label = ir::Label::new();
+
+    let branch_count = condition.branches.len();
+
+    for (index, (predicate, branch_block)) in condition.branches.iter().enumerate() {
+        let is_last_branch = index == branch_count - 1;
+
+        if let Some(ref predicate) = predicate {
+            let predicate_slot = compile_expression(block, predicate)?;
+            block.push(ir::Opcode::Jump(
+                ir::JumpCondition::IfZero(predicate_slot),
+                if is_last_branch {
+                    end_label
+                } else {
+                    next_branch
+                },
+            ));
+        }
+
+        compile_block(block, branch_block)?;
+
+        if !is_last_branch {
+            block.push(ir::Opcode::Jump(
+                ir::JumpCondition::Unconditional,
+                end_label,
+            ));
+
+            block.set_label(next_branch);
+        }
+    }
+
+    block.set_label(end_label);
+
+    let result_slot = ir::Slot::new();
+    Ok(result_slot)
+}
+
+fn compile_block(ir_block: &mut ir::Block, block: &Block) -> CompileResult {
+    let mut result = None;
+
+    for statement in &block.0 {
+        result = Some(compile_statement(ir_block, statement)?);
+    }
+
+    let Some(result ) = result else {
+        unimplemented!("empty block");
+    };
+
+    Ok(result)
 }
 
 fn compile_variable_declaration(

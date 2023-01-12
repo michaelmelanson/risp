@@ -55,6 +55,8 @@ impl<'a> Evaluator<'a> {
             }
             Statement::VariableDeclaration(_declaration) => todo!("evaluate variable declaration"),
             Statement::Expression(_expression) => {}
+            Statement::Condition(_condition) => {}
+            Statement::Return(_) => {}
         }
         Ok(())
     }

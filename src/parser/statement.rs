@@ -1,5 +1,7 @@
+mod condition;
 mod expression;
 mod function_definition;
+mod return_statement;
 mod variable_declaration;
 
 use nom::branch::alt;
@@ -7,26 +9,32 @@ use nom::branch::alt;
 use super::{expression::Expression, ParseResult, Span};
 
 use self::{
-    expression::parse_expression_statement,
+    condition::parse_condition_statement, expression::parse_expression_statement,
     function_definition::parse_function_definition_statement,
+    return_statement::parse_return_statement,
     variable_declaration::parse_variable_declaration_statement,
 };
 pub use self::{
+    condition::Condition,
     function_definition::{parse_function_definition, FunctionDefinition},
     variable_declaration::VariableDeclaration,
 };
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
-    FunctionDefinition(FunctionDefinition),
     Expression(Expression),
+    FunctionDefinition(FunctionDefinition),
     VariableDeclaration(VariableDeclaration),
+    Condition(Condition),
+    Return(Expression),
 }
 
 pub fn parse_statement(input: Span) -> ParseResult<Statement> {
     alt((
         parse_function_definition_statement,
         parse_variable_declaration_statement,
+        parse_condition_statement,
+        parse_return_statement,
         parse_expression_statement,
     ))(input)
 }

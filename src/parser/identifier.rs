@@ -1,5 +1,6 @@
 use nom::{
     character::complete::multispace0,
+    combinator::fail,
     error::{ErrorKind, ParseError},
     AsChar, IResult, InputTakeAtPosition,
 };
@@ -43,8 +44,13 @@ where
 
 pub fn parse_identifier(input: Span) -> ParseResult<Identifier> {
     let (input, _) = multispace0(input)?;
-    let (input, position) = position(input)?;
-    let (input, value) = identifier_name(input)?;
+    let (before_token_input, position) = position(input)?;
+    let (input, value) = identifier_name(before_token_input)?;
+
+    let (input, _) = match *value.fragment() {
+        "def" | "let" | "if" | "else" => fail(before_token_input)?,
+        _ => (input, ()),
+    };
 
     println!("Identifier: {:?}", value);
     Ok((
