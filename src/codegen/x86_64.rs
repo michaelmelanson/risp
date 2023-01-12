@@ -194,6 +194,8 @@ fn codegen_block(
     assembler: &mut CodeAssembler,
     block: ir::Block,
 ) -> CodegenResult<()> {
+    let mut epilogue_label = assembler.create_label();
+
     assembler.push(rbp)?;
     assembler.mov(rbp, rsp)?;
 
@@ -265,16 +267,16 @@ fn codegen_block(
                             .slot_values
                             .insert(*destination, SlotValue::FunctionArgument(*index));
                     }
-                    ir::Opcode::Return(slot) => {
+
+                    ir::Opcode::SetReturnValue(slot) => {
                         let value = slot_to_register(state, assembler, slot)?;
                         assembler.mov(
                             rax,
                             get_gpr64(value.0).expect("register is not a General-Purpose Register"),
                         )?;
-                        assembler.mov(rsp, rbp)?;
-                        assembler.pop(rbp)?;
-                        assembler.ret()?;
                     }
+
+                    ir::Opcode::Return => assembler.jmp(epilogue_label)?,
 
                     ir::Opcode::StackVariable(offset) => {
                         state
@@ -307,6 +309,11 @@ fn codegen_block(
             }
         }
     }
+
+    assembler.set_label(&mut epilogue_label)?;
+    assembler.mov(rsp, rbp)?;
+    assembler.pop(rbp)?;
+    assembler.ret()?;
 
     Ok(())
 }

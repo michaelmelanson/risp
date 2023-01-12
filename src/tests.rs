@@ -88,10 +88,24 @@ mod test {
                 if x {
                     return 1
                 }
-                return 0
+                
+                0
             } is_one(1)"
             ),
             Value::Integer(1)
+        );
+
+        assert_eq!(
+            eval(
+                "
+            def is_one(x) { 
+                if x {
+                    return 1
+                }
+                0
+            } is_one(0)"
+            ),
+            Value::Integer(0)
         );
     }
 }

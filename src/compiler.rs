@@ -17,7 +17,7 @@ pub use self::{
     stack_frame::{StackFrame, Symbol},
 };
 
-pub type CompileResult = Result<ir::Slot, CompileError>;
+pub type CompileResult<T = ir::Slot> = Result<T, CompileError>;
 
 pub fn compile<'a>(
     stack_frame: &'a mut StackFrame<'_>,
@@ -26,8 +26,8 @@ pub fn compile<'a>(
     println!("AST:\n{:?}\n", block);
 
     let mut ir_block = ir::Block::new(stack_frame);
-    let result = compile_block(&mut ir_block, block)?;
-    ir_block.push(ir::Opcode::Return(result));
+    let _result = compile_block(&mut ir_block, block)?;
+    // ir_block.push(ir::Opcode::Return(result));
 
     let function = codegen::codegen(ir_block)?;
     Ok(function)
@@ -47,7 +47,8 @@ fn compile_statement(block: &mut ir::Block, statement: &Statement) -> CompileRes
 
 fn compile_return_statement(block: &mut ir::Block, result: &Expression) -> CompileResult {
     let result = compile_expression(block, result)?;
-    block.push(ir::Opcode::Return(result));
+    block.push(ir::Opcode::SetReturnValue(result));
+    block.push(ir::Opcode::Return);
     Ok(result)
 }
 
@@ -93,13 +94,24 @@ fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> 
 fn compile_block(ir_block: &mut ir::Block, block: &Block) -> CompileResult {
     let mut result = None;
 
+    let mut returned = false;
+
     for statement in &block.0 {
         result = Some(compile_statement(ir_block, statement)?);
+
+        if let Statement::Return(_) = statement {
+            returned = true;
+            break;
+        }
     }
 
     let Some(result ) = result else {
         unimplemented!("empty block");
     };
+
+    if !returned {
+        ir_block.push(ir::Opcode::SetReturnValue(result));
+    }
 
     Ok(result)
 }

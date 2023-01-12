@@ -8,7 +8,8 @@ use super::{jump_condition::JumpCondition, slot::Slot, Label};
 pub enum Opcode {
     Literal(Value),
     FunctionArgument(usize),
-    Return(Slot),
+    SetReturnValue(Slot),
+    Return,
     Jump(JumpCondition, Label),
 
     BinaryOperator(Slot, BinaryOperator, Slot),
@@ -36,7 +37,8 @@ impl std::fmt::Display for Opcode {
                 write!(f, ")")
             }
             Opcode::FunctionArgument(index) => write!(f, "arg {}", index),
-            Opcode::Return(slot) => write!(f, "return {}", slot),
+            Opcode::SetReturnValue(slot) => write!(f, "return value = {}", slot),
+            Opcode::Return => write!(f, "return"),
             Opcode::StackVariable(offset) => write!(f, "stack@{}", offset),
             Opcode::AssignToStackVariable(offset, slot) => write!(f, "stack@{} = {}", offset, slot),
             Opcode::Jump(condition, label) => write!(f, "jump {} to {}", condition, label),
