@@ -8,6 +8,7 @@ pub enum ValueEncodeError {
 #[derive(Clone, Copy, Debug)]
 pub enum ValueDecodeError {
     UnknownType(u64),
+    InvalidBoolean(u64),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -15,6 +16,7 @@ pub enum ValueDecodeError {
 pub enum ValueType {
     Integer,
     String,
+    Boolean,
 }
 
 impl TryFrom<u64> for ValueType {
@@ -24,6 +26,7 @@ impl TryFrom<u64> for ValueType {
         match type_number {
             0 => Ok(ValueType::Integer),
             1 => Ok(ValueType::String),
+            2 => Ok(ValueType::Boolean),
             _ => Err(ValueDecodeError::UnknownType(type_number)),
         }
     }
@@ -34,6 +37,7 @@ impl From<ValueType> for u64 {
         match value {
             ValueType::Integer => 0,
             ValueType::String => 1,
+            ValueType::Boolean => 2,
         }
     }
 }
@@ -42,6 +46,7 @@ impl From<ValueType> for u64 {
 pub enum Value {
     Integer(i64),
     String(String),
+    Boolean(bool),
 }
 
 impl From<Value> for ValueType {
@@ -49,6 +54,7 @@ impl From<Value> for ValueType {
         match value {
             Value::Integer(_) => ValueType::Integer,
             Value::String(_) => ValueType::String,
+            Value::Boolean(_) => ValueType::Boolean,
         }
     }
 }
@@ -103,13 +109,16 @@ impl TryFrom<&Value> for EncodedValue {
                 let ptr = str_ref as *mut String;
                 (ptr as u64, ValueType::String)
             }
+            Value::Boolean(true) => (1, ValueType::Boolean),
+            Value::Boolean(false) => (0, ValueType::Boolean),
         };
 
         if value & Self::TYPE_MASK != 0 {
             return Err(ValueEncodeError::Overflow);
         }
 
-        let encoded = value | (Into::<u64>::into(value_type) << Self::VALUE_BITS);
+        let type_code = Into::<u64>::into(value_type) << Self::VALUE_BITS;
+        let encoded = value | type_code;
         Ok(EncodedValue(encoded))
     }
 }
@@ -128,6 +137,11 @@ impl TryFrom<EncodedValue> for Value {
                 let string = *boxed_str;
                 Ok(Value::String(string))
             }
+            ValueType::Boolean => match value {
+                0 => Ok(Value::Boolean(false)),
+                1 => Ok(Value::Boolean(true)),
+                value => Err(ValueDecodeError::InvalidBoolean(encoded.0)),
+            },
         }
     }
 }

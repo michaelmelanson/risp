@@ -3,7 +3,7 @@ use nom::Slice;
 
 use crate::parser::{
     parse_expression, parse_identifier,
-    tokens::{equal_token, let_keyword},
+    tokens::{assignment_token, let_keyword},
     Expression, Identifier, ParseResult, Span, Token,
 };
 
@@ -24,7 +24,7 @@ pub struct VariableDeclaration {
 pub fn parse_variable_declaration(input: Span) -> ParseResult<VariableDeclaration> {
     let (input, let_token) = let_keyword(input)?;
     let (input, name) = parse_identifier(input)?;
-    let (input, _) = equal_token(input)?;
+    let (input, _) = assignment_token(input)?;
     let (input, initial_value) = parse_expression(input)?;
 
     let value = VariableDeclaration {

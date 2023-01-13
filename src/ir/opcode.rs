@@ -24,6 +24,7 @@ impl std::fmt::Display for Opcode {
         match self {
             Opcode::Literal(Value::Integer(value)) => write!(f, "{:X}", value),
             Opcode::Literal(Value::String(value)) => write!(f, "{}", value),
+            Opcode::Literal(Value::Boolean(value)) => write!(f, "{}", value),
             Opcode::BinaryOperator(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Opcode::CallFunction(func, args) => {
                 write!(f, "call {} (", func)?;

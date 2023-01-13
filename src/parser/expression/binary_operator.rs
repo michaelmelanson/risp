@@ -1,7 +1,7 @@
-use nom::{multi::fold_many0, sequence::preceded};
+use nom::{branch::alt, multi::fold_many0, sequence::tuple};
 
 use crate::parser::{
-    tokens::{add_token, multiply_token},
+    tokens::{add_token, divide_token, multiply_token, subtract_token},
     ParseResult, Span, Token,
 };
 
@@ -9,8 +9,19 @@ use super::{parse_factor_expression, Expression};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOperator {
+    // Arithmetic operators
     Add,
+    Subtract,
     Multiply,
+    Divide,
+
+    // Comparison operators
+    Equal,
+    NotEqual,
+    LessThan,
+    LessOrEqual,
+    GreaterThan,
+    GreaterOrEqual,
 }
 
 impl std::fmt::Display for BinaryOperator {
@@ -18,6 +29,14 @@ impl std::fmt::Display for BinaryOperator {
         match self {
             BinaryOperator::Add => write!(f, "+"),
             BinaryOperator::Multiply => write!(f, "*"),
+            BinaryOperator::Subtract => write!(f, "-"),
+            BinaryOperator::Divide => write!(f, "/"),
+            BinaryOperator::Equal => write!(f, "=="),
+            BinaryOperator::NotEqual => write!(f, "!="),
+            BinaryOperator::LessThan => write!(f, "<"),
+            BinaryOperator::LessOrEqual => write!(f, "<="),
+            BinaryOperator::GreaterThan => write!(f, ">"),
+            BinaryOperator::GreaterOrEqual => write!(f, ">="),
         }
     }
 }
@@ -25,15 +44,22 @@ impl std::fmt::Display for BinaryOperator {
 pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> {
     let (input, lhs) = parse_expression_term(input)?;
     let (input, value) = fold_many0(
-        preceded(add_token, parse_expression_term),
+        tuple((alt((add_token, subtract_token)), parse_expression_term)),
         || lhs.clone(),
-        |acc, rhs| Token {
-            position: acc.position,
-            value: Expression::BinaryExpression(
-                Box::new(acc.value),
-                BinaryOperator::Add,
-                Box::new(rhs.value),
-            ),
+        |acc, (operator, rhs)| {
+            let operator = match operator.value.as_str() {
+                "+" => BinaryOperator::Add,
+                "-" => BinaryOperator::Subtract,
+                _ => unreachable!("unknown operator {}", operator.value),
+            };
+            Token {
+                position: acc.position,
+                value: Expression::BinaryExpression(
+                    Box::new(acc.value),
+                    operator,
+                    Box::new(rhs.value),
+                ),
+            }
         },
     )(input)?;
 
@@ -44,15 +70,23 @@ pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> 
 pub fn parse_expression_term(input: Span) -> ParseResult<Expression> {
     let (input, lhs) = parse_factor_expression(input)?;
     let (input, value) = fold_many0(
-        preceded(multiply_token, parse_factor_expression),
+        tuple((alt((multiply_token, divide_token)), parse_factor_expression)),
         || lhs.clone(),
-        |acc, rhs| Token {
-            position: acc.position,
-            value: Expression::BinaryExpression(
-                Box::new(acc.value),
-                BinaryOperator::Multiply,
-                Box::new(rhs.value),
-            ),
+        |acc, (operator, rhs)| {
+            let operator = match operator.value.as_str() {
+                "*" => BinaryOperator::Multiply,
+                "/" => BinaryOperator::Divide,
+                _ => unreachable!("unknown operator {}", operator.value),
+            };
+
+            Token {
+                position: acc.position,
+                value: Expression::BinaryExpression(
+                    Box::new(acc.value),
+                    operator,
+                    Box::new(rhs.value),
+                ),
+            }
         },
     )(input)?;
 
@@ -93,8 +127,8 @@ mod tests {
     }
 
     #[test]
-    fn test_multiplication() {
-        parse_test(parse_binary_operator_expression, "2 * 3 * 4", |input| {
+    fn test_multiplication_division() {
+        parse_test(parse_binary_operator_expression, "2 * 3 / 4", |input| {
             (
                 input.slice(9..),
                 Token {
@@ -105,7 +139,7 @@ mod tests {
                             BinaryOperator::Multiply,
                             Box::new(Expression::Literal(Literal::Integer(3))),
                         )),
-                        BinaryOperator::Multiply,
+                        BinaryOperator::Divide,
                         Box::new(Expression::Literal(Literal::Integer(4))),
                     ),
                 },

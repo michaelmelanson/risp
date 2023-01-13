@@ -1,14 +1,14 @@
 use super::{util::ignore_whitespace, ParseResult, Span, Token};
 use nom::{bytes::complete::tag, character::complete::char};
 
-fn token(c: char) -> impl FnMut(Span) -> ParseResult<char> {
+fn token<'a>(c: &'a str) -> impl FnMut(Span<'a>) -> ParseResult<String> {
     move |input| {
-        let (input, token) = ignore_whitespace(char(c))(input)?;
+        let (input, token) = ignore_whitespace(tag(c))(input)?;
         Ok((
             input,
             Token {
                 position: token.position,
-                value: token.value,
+                value: token.value.to_string(),
             },
         ))
     }
@@ -27,28 +27,36 @@ fn keyword(k: &str) -> impl FnMut(Span) -> ParseResult<Span> + '_ {
     }
 }
 
-pub fn comma_token(input: Span<'_>) -> ParseResult<'_, char> {
-    token(',')(input)
+pub fn comma_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token(",")(input)
 }
 
-pub fn open_brace_token(input: Span<'_>) -> ParseResult<'_, char> {
-    token('{')(input)
+pub fn open_brace_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("{")(input)
 }
 
-pub fn close_brace_token(input: Span<'_>) -> ParseResult<'_, char> {
-    token('}')(input)
+pub fn close_brace_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("}")(input)
 }
 
-pub fn add_token(input: Span<'_>) -> ParseResult<'_, char> {
-    token('+')(input)
+pub fn add_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("+")(input)
 }
 
-pub fn multiply_token(input: Span<'_>) -> ParseResult<'_, char> {
-    token('*')(input)
+pub fn subtract_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("-")(input)
 }
 
-pub fn equal_token(input: Span<'_>) -> ParseResult<'_, char> {
-    token('=')(input)
+pub fn multiply_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("*")(input)
+}
+
+pub fn divide_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("/")(input)
+}
+
+pub fn assignment_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("=")(input)
 }
 
 pub fn def_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {

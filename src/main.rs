@@ -27,6 +27,7 @@ fn main() {
                     Ok(value) => match value {
                         Value::Integer(value) => println!("(integer) {:?}", value),
                         Value::String(value) => println!("(string) {:?}", value),
+                        Value::Boolean(value) => println!("(boolean) {:?}", value),
                     },
                     Err(error) => eprintln!("Evaluation error: {}", error),
                 }

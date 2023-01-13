@@ -238,6 +238,14 @@ fn codegen_block(
                                     rhs.to_gpr64(),
                                 )?;
                             }
+                            BinaryOperator::Subtract => todo!("subtraction operator"),
+                            BinaryOperator::Divide => todo!("division operator"),
+                            BinaryOperator::Equal => todo!("equality opeartor"),
+                            BinaryOperator::NotEqual => todo!(""),
+                            BinaryOperator::LessThan => todo!(),
+                            BinaryOperator::LessOrEqual => todo!(),
+                            BinaryOperator::GreaterThan => todo!(),
+                            BinaryOperator::GreaterOrEqual => todo!(),
                         }
 
                         state
