@@ -53,7 +53,9 @@ impl<'a> Evaluator<'a> {
                 println!("Function {} defined", definition.name);
                 self.stack_frame.insert(&definition.name, symbol);
             }
-            Statement::VariableDeclaration(_declaration) => todo!("evaluate variable declaration"),
+            Statement::VariableDeclaration(_declaration) => {
+                todo!("evaluate variable declaration — requires maintaining a stack in the REPL")
+            }
             Statement::Expression(_expression) => {}
             Statement::Condition(_condition) => {}
             Statement::Return(_) => {}
