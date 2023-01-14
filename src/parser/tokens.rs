@@ -1,5 +1,5 @@
 use super::{util::ignore_whitespace, ParseResult, Span, Token};
-use nom::{bytes::complete::tag, character::complete::char};
+use nom::bytes::complete::tag;
 
 fn token<'a>(c: &'a str) -> impl FnMut(Span<'a>) -> ParseResult<String> {
     move |input| {

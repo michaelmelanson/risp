@@ -140,7 +140,7 @@ impl TryFrom<EncodedValue> for Value {
             ValueType::Boolean => match value {
                 0 => Ok(Value::Boolean(false)),
                 1 => Ok(Value::Boolean(true)),
-                value => Err(ValueDecodeError::InvalidBoolean(encoded.0)),
+                _ => Err(ValueDecodeError::InvalidBoolean(encoded.0)),
             },
         }
     }
