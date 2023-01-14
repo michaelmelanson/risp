@@ -55,6 +55,30 @@ pub fn divide_token(input: Span<'_>) -> ParseResult<'_, String> {
     token("/")(input)
 }
 
+pub fn equality_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("==")(input)
+}
+
+pub fn inequality_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("!=")(input)
+}
+
+pub fn less_than_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("<")(input)
+}
+
+pub fn less_or_equal_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token("<=")(input)
+}
+
+pub fn greater_than_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token(">")(input)
+}
+
+pub fn greater_or_equal_token(input: Span<'_>) -> ParseResult<'_, String> {
+    token(">=")(input)
+}
+
 pub fn assignment_token(input: Span<'_>) -> ParseResult<'_, String> {
     token("=")(input)
 }

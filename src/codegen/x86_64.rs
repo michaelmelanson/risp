@@ -196,10 +196,12 @@ fn codegen_block(
 ) -> CodegenResult<()> {
     let mut epilogue_label = assembler.create_label();
 
-    assembler.push(rbp)?;
-    assembler.mov(rbp, rsp)?;
+    let requires_stack_frame = block.stack_slots() > 0;
 
-    if block.stack_slots() > 0 {
+    if requires_stack_frame {
+        assembler.push(rbp)?;
+        assembler.mov(rbp, rsp)?;
+
         let stack_size_bytes = block.stack_slots() * 8;
         assembler.sub(rsp, stack_size_bytes as i32)?;
     }
@@ -238,14 +240,21 @@ fn codegen_block(
                                     rhs.to_gpr64(),
                                 )?;
                             }
-                            BinaryOperator::Subtract => todo!("subtraction operator"),
-                            BinaryOperator::Divide => todo!("division operator"),
-                            BinaryOperator::Equal => todo!("equality opeartor"),
-                            BinaryOperator::NotEqual => todo!(""),
-                            BinaryOperator::LessThan => todo!(),
-                            BinaryOperator::LessOrEqual => todo!(),
-                            BinaryOperator::GreaterThan => todo!(),
-                            BinaryOperator::GreaterOrEqual => todo!(),
+                            BinaryOperator::Subtract => {
+                                assembler.sub::<AsmRegister64, AsmRegister64>(
+                                    lhs.to_gpr64(),
+                                    rhs.to_gpr64(),
+                                )?;
+                            }
+                            BinaryOperator::Divide => {
+                                todo!("division operator");
+                            }
+                            BinaryOperator::Equal
+                            | BinaryOperator::NotEqual
+                            | BinaryOperator::LessThan
+                            | BinaryOperator::LessOrEqual
+                            | BinaryOperator::GreaterThan
+                            | BinaryOperator::GreaterOrEqual => todo!("conditional expressions"),
                         }
 
                         state
@@ -319,8 +328,11 @@ fn codegen_block(
     }
 
     assembler.set_label(&mut epilogue_label)?;
-    assembler.mov(rsp, rbp)?;
-    assembler.pop(rbp)?;
+
+    if requires_stack_frame {
+        assembler.mov(rsp, rbp)?;
+        assembler.pop(rbp)?;
+    }
     assembler.ret()?;
 
     Ok(())

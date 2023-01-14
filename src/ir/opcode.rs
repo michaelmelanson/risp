@@ -22,9 +22,9 @@ pub enum Opcode {
 impl std::fmt::Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Opcode::Literal(Value::Integer(value)) => write!(f, "{:X}", value),
-            Opcode::Literal(Value::String(value)) => write!(f, "{}", value),
-            Opcode::Literal(Value::Boolean(value)) => write!(f, "{}", value),
+            Opcode::Literal(Value::Integer(value)) => write!(f, "literal {}", value),
+            Opcode::Literal(Value::String(value)) => write!(f, "literal {}", value),
+            Opcode::Literal(Value::Boolean(value)) => write!(f, "literal {}", value),
             Opcode::BinaryOperator(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Opcode::CallFunction(func, args) => {
                 write!(f, "call {} (", func)?;
@@ -38,7 +38,7 @@ impl std::fmt::Display for Opcode {
                 write!(f, ")")
             }
             Opcode::FunctionArgument(index) => write!(f, "arg {}", index),
-            Opcode::SetReturnValue(slot) => write!(f, "return value = {}", slot),
+            Opcode::SetReturnValue(slot) => write!(f, "return_value = {}", slot),
             Opcode::Return => write!(f, "return"),
             Opcode::StackVariable(offset) => write!(f, "stack@{}", offset),
             Opcode::AssignToStackVariable(offset, slot) => write!(f, "stack@{} = {}", offset, slot),

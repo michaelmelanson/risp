@@ -1,7 +1,10 @@
 use nom::{branch::alt, multi::fold_many0, sequence::tuple};
 
 use crate::parser::{
-    tokens::{add_token, divide_token, multiply_token, subtract_token},
+    tokens::{
+        add_token, divide_token, equality_token, greater_or_equal_token, greater_than_token,
+        inequality_token, less_or_equal_token, less_than_token, multiply_token, subtract_token,
+    },
     ParseResult, Span, Token,
 };
 
@@ -28,8 +31,8 @@ impl std::fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BinaryOperator::Add => write!(f, "+"),
-            BinaryOperator::Multiply => write!(f, "*"),
             BinaryOperator::Subtract => write!(f, "-"),
+            BinaryOperator::Multiply => write!(f, "*"),
             BinaryOperator::Divide => write!(f, "/"),
             BinaryOperator::Equal => write!(f, "=="),
             BinaryOperator::NotEqual => write!(f, "!="),
@@ -42,56 +45,66 @@ impl std::fmt::Display for BinaryOperator {
 }
 
 pub fn parse_binary_operator_expression(input: Span) -> ParseResult<Expression> {
-    let (input, lhs) = parse_expression_term(input)?;
+    let (input, expression) = parse_binary_operators(input, 1)?;
+    println!("Binary expression: {:?}", expression);
+
+    Ok((input, expression))
+}
+
+pub fn parse_binary_operators(input: Span, precedence: usize) -> ParseResult<Expression> {
+    let token_parser = |input| match precedence {
+        1 => alt((
+            equality_token,
+            inequality_token,
+            less_or_equal_token,
+            less_than_token,
+            greater_or_equal_token,
+            greater_than_token,
+        ))(input),
+
+        2 => alt((add_token, subtract_token))(input),
+        3 => alt((multiply_token, divide_token))(input),
+        _ => unreachable!(),
+    };
+
+    let next_parser = |input| match precedence {
+        1..=2 => parse_binary_operators(input, precedence + 1),
+        _ => parse_factor_expression(input),
+    };
+
+    let (input, lhs) = next_parser(input)?;
     let (input, value) = fold_many0(
-        tuple((alt((add_token, subtract_token)), parse_expression_term)),
+        tuple((token_parser, next_parser)),
         || lhs.clone(),
-        |acc, (operator, rhs)| {
-            let operator = match operator.value.as_str() {
-                "+" => BinaryOperator::Add,
-                "-" => BinaryOperator::Subtract,
-                _ => unreachable!("unknown operator {}", operator.value),
-            };
-            Token {
-                position: acc.position,
-                value: Expression::BinaryExpression(
-                    Box::new(acc.value),
-                    operator,
-                    Box::new(rhs.value),
-                ),
-            }
-        },
+        accumulate_expression,
     )(input)?;
 
-    println!("Binary expression: {:?}", value);
     Ok((input, value))
 }
 
-pub fn parse_expression_term(input: Span) -> ParseResult<Expression> {
-    let (input, lhs) = parse_factor_expression(input)?;
-    let (input, value) = fold_many0(
-        tuple((alt((multiply_token, divide_token)), parse_factor_expression)),
-        || lhs.clone(),
-        |acc, (operator, rhs)| {
-            let operator = match operator.value.as_str() {
-                "*" => BinaryOperator::Multiply,
-                "/" => BinaryOperator::Divide,
-                _ => unreachable!("unknown operator {}", operator.value),
-            };
+fn accumulate_expression<'a>(
+    acc: Token<'a, Expression>,
+    (operator, rhs): (Token<'a, String>, Token<'a, Expression>),
+) -> Token<'a, Expression> {
+    let operator = match operator.value.as_str() {
+        "+" => BinaryOperator::Add,
+        "-" => BinaryOperator::Subtract,
+        "*" => BinaryOperator::Multiply,
+        "/" => BinaryOperator::Divide,
+        "==" => BinaryOperator::Equal,
+        "!=" => BinaryOperator::NotEqual,
+        "<" => BinaryOperator::LessThan,
+        "<=" => BinaryOperator::LessOrEqual,
+        ">" => BinaryOperator::GreaterThan,
+        ">=" => BinaryOperator::GreaterOrEqual,
 
-            Token {
-                position: acc.position,
-                value: Expression::BinaryExpression(
-                    Box::new(acc.value),
-                    operator,
-                    Box::new(rhs.value),
-                ),
-            }
-        },
-    )(input)?;
-
-    println!("Expression term: {:?}", value);
-    Ok((input, value))
+        // unreachable because it means a parser fucked up and gave us a token we don't expect
+        _ => unreachable!("unknown operator {}", operator.value),
+    };
+    Token {
+        position: acc.position,
+        value: Expression::BinaryExpression(Box::new(acc.value), operator, Box::new(rhs.value)),
+    }
 }
 
 #[cfg(test)]
@@ -208,5 +221,72 @@ mod tests {
                 },
             )
         })
+    }
+
+    #[test]
+    pub fn test_rainbow_operators() {
+        parse_test(
+            parse_binary_operator_expression,
+            "1 + 2 - 3 * 4 / 5 == 7 != 8 < 9 <= 10 > 11 >= 12",
+            |input| {
+                (
+                    input.slice(48..),
+                    Token {
+                        position: input.slice(0..0),
+                        value: Expression::BinaryExpression(
+                            Box::new(Expression::BinaryExpression(
+                                Box::new(Expression::BinaryExpression(
+                                    Box::new(Expression::BinaryExpression(
+                                        Box::new(Expression::BinaryExpression(
+                                            Box::new(Expression::BinaryExpression(
+                                                Box::new(Expression::BinaryExpression(
+                                                    Box::new(Expression::BinaryExpression(
+                                                        Box::new(Expression::Literal(
+                                                            Literal::Integer(1),
+                                                        )),
+                                                        BinaryOperator::Add,
+                                                        Box::new(Expression::Literal(
+                                                            Literal::Integer(2),
+                                                        )),
+                                                    )),
+                                                    BinaryOperator::Subtract,
+                                                    Box::new(Expression::BinaryExpression(
+                                                        Box::new(Expression::BinaryExpression(
+                                                            Box::new(Expression::Literal(
+                                                                Literal::Integer(3),
+                                                            )),
+                                                            BinaryOperator::Multiply,
+                                                            Box::new(Expression::Literal(
+                                                                Literal::Integer(4),
+                                                            )),
+                                                        )),
+                                                        BinaryOperator::Divide,
+                                                        Box::new(Expression::Literal(
+                                                            Literal::Integer(5),
+                                                        )),
+                                                    )),
+                                                )),
+                                                BinaryOperator::Equal,
+                                                Box::new(Expression::Literal(Literal::Integer(7))),
+                                            )),
+                                            BinaryOperator::NotEqual,
+                                            Box::new(Expression::Literal(Literal::Integer(8))),
+                                        )),
+                                        BinaryOperator::LessThan,
+                                        Box::new(Expression::Literal(Literal::Integer(9))),
+                                    )),
+                                    BinaryOperator::LessOrEqual,
+                                    Box::new(Expression::Literal(Literal::Integer(10))),
+                                )),
+                                BinaryOperator::GreaterThan,
+                                Box::new(Expression::Literal(Literal::Integer(11))),
+                            )),
+                            BinaryOperator::GreaterOrEqual,
+                            Box::new(Expression::Literal(Literal::Integer(12))),
+                        ),
+                    },
+                )
+            },
+        )
     }
 }
