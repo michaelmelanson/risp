@@ -20,7 +20,7 @@ pub fn parameter_register(index: usize) -> Result<AsmRegister64, CodegenError> {
     }
 }
 
-pub fn stack_variable(offset: usize) -> AsmMemoryOperand {
+pub fn stack_variable_ref(offset: usize) -> AsmMemoryOperand {
     dword_ptr(rbp - (8 + offset))
 }
 

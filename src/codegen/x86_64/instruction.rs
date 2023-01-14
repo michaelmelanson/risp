@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    abi::{parameter_register, stack_variable},
+    abi::{parameter_register, stack_variable_ref},
     codegen_state::CodegenState,
     register_allocation::RegisterLease,
     slot::{slot_to_register, SlotValue},
@@ -116,7 +116,7 @@ pub fn codegen_instruction(
 
                 ir::Opcode::AssignToStackVariable(offset, slot) => {
                     let value = slot_to_register(state, assembler, slot)?;
-                    assembler.mov(stack_variable(*offset), value.to_gpr64())?;
+                    assembler.mov(stack_variable_ref(*offset), value.to_gpr64())?;
 
                     state
                         .slot_values

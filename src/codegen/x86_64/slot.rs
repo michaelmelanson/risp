@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    abi::{parameter_register, stack_variable},
+    abi::{parameter_register, stack_variable_ref},
     codegen_state::CodegenState,
     register_allocation::{RegisterLease, ReserveMode},
     CodegenError,
@@ -52,7 +52,7 @@ pub fn slot_to_register(
         Some(SlotValue::StackOffset(offset)) => {
             let offset = *offset;
             let reg = state.reserve_register()?;
-            assembler.mov(reg.to_gpr64(), stack_variable(offset))?;
+            assembler.mov(reg.to_gpr64(), stack_variable_ref(offset))?;
             Ok(reg)
         }
 
