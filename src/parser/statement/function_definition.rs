@@ -9,7 +9,10 @@ use crate::parser::{
 };
 
 #[cfg(test)]
-use crate::{parser::VariableDeclaration, tests::parse_test};
+use crate::{
+    parser::{ArithmeticOperator, VariableDeclaration},
+    tests::parse_test,
+};
 
 use super::Statement;
 
@@ -78,7 +81,7 @@ fn test_function_definition_1() {
                         args: vec![Identifier("x".to_string())],
                         body: Block(vec![Statement::Expression(Expression::BinaryExpression(
                             Box::new(Expression::Literal(Literal::Integer(1))),
-                            BinaryOperator::Add,
+                            BinaryOperator::ArithmeticOperator(ArithmeticOperator::Add),
                             Box::new(Expression::Identifier(Identifier("x".to_string()))),
                         ))]),
                     },
@@ -108,7 +111,7 @@ fn test_function_definition_2() {
                         args: vec![Identifier("x".to_string())],
                         body: Block(vec![Statement::Expression(Expression::BinaryExpression(
                             Box::new(Expression::Literal(Literal::Integer(1))),
-                            BinaryOperator::Add,
+                            BinaryOperator::ArithmeticOperator(ArithmeticOperator::Add),
                             Box::new(Expression::Identifier(Identifier("x".to_string()))),
                         ))]),
                     },
@@ -139,7 +142,9 @@ fn test_function_definition_3() {
                                 name: Identifier::new("result"),
                                 value: Expression::BinaryExpression(
                                     Box::new(Expression::Identifier(Identifier("x".to_string()))),
-                                    BinaryOperator::Multiply,
+                                    BinaryOperator::ArithmeticOperator(
+                                        ArithmeticOperator::Multiply,
+                                    ),
                                     Box::new(Expression::Identifier(Identifier("x".to_string()))),
                                 ),
                             }),

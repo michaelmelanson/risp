@@ -15,7 +15,7 @@ use iced_x86::{
 use crate::{
     compiler::Function,
     ir,
-    parser::BinaryOperator,
+    parser::{ArithmeticOperator, BinaryOperator},
     value::{EncodedValue, Value, ValueEncodeError},
 };
 
@@ -223,44 +223,48 @@ fn codegen_block(
                             .insert(*destination, SlotValue::Literal(literal.clone()));
                     }
 
-                    ir::Opcode::BinaryOperator(lhs, op, rhs) => {
+                    ir::Opcode::BinaryOperator(
+                        lhs,
+                        BinaryOperator::ArithmeticOperator(op),
+                        rhs,
+                    ) => {
                         let lhs = slot_to_register(state, assembler, lhs)?;
                         let rhs = slot_to_register(state, assembler, rhs)?;
 
                         match op {
-                            BinaryOperator::Add => {
+                            ArithmeticOperator::Add => {
                                 assembler.add::<AsmRegister64, AsmRegister64>(
                                     lhs.to_gpr64(),
                                     rhs.to_gpr64(),
                                 )?;
                             }
-                            BinaryOperator::Multiply => {
+                            ArithmeticOperator::Multiply => {
                                 assembler.imul_2::<AsmRegister64, AsmRegister64>(
                                     lhs.to_gpr64(),
                                     rhs.to_gpr64(),
                                 )?;
                             }
-                            BinaryOperator::Subtract => {
+                            ArithmeticOperator::Subtract => {
                                 assembler.sub::<AsmRegister64, AsmRegister64>(
                                     lhs.to_gpr64(),
                                     rhs.to_gpr64(),
                                 )?;
                             }
-                            BinaryOperator::Divide => {
+                            ArithmeticOperator::Divide => {
                                 todo!("division operator");
                             }
-                            BinaryOperator::Equal
-                            | BinaryOperator::NotEqual
-                            | BinaryOperator::LessThan
-                            | BinaryOperator::LessOrEqual
-                            | BinaryOperator::GreaterThan
-                            | BinaryOperator::GreaterOrEqual => todo!("conditional expressions"),
                         }
 
                         state
                             .slot_values
                             .insert(*destination, SlotValue::Register(lhs));
                     }
+
+                    ir::Opcode::BinaryOperator(
+                        _lhs,
+                        BinaryOperator::ComparisonOperator(_op),
+                        _rhs,
+                    ) => todo!("comparison operators"),
 
                     ir::Opcode::CallFunction(func, args) => {
                         for (index, arg) in args.iter().enumerate() {

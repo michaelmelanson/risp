@@ -9,7 +9,7 @@ use crate::parser::{
 
 #[cfg(test)]
 use crate::{
-    parser::{BinaryOperator, Literal},
+    parser::{ArithmeticOperator, BinaryOperator, Literal},
     tests::parse_test,
 };
 
@@ -65,7 +65,7 @@ fn test_parse_variable_declaration() {
                     name: Identifier::new("x"),
                     value: Expression::BinaryExpression(
                         Box::new(Expression::Literal(Literal::Integer(55))),
-                        BinaryOperator::Add,
+                        BinaryOperator::ArithmeticOperator(ArithmeticOperator::Add),
                         Box::new(Expression::Literal(Literal::Integer(42))),
                     ),
                 },
@@ -85,7 +85,7 @@ fn test_parse_variable_declaration_2() {
                     name: Identifier::new("result"),
                     value: Expression::BinaryExpression(
                         Box::new(Expression::Identifier(Identifier::new("x"))),
-                        BinaryOperator::Multiply,
+                        BinaryOperator::ArithmeticOperator(ArithmeticOperator::Multiply),
                         Box::new(Expression::Identifier(Identifier::new("x"))),
                     ),
                 },

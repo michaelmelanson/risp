@@ -14,7 +14,7 @@ use self::{
     literal::parse_literal_expression,
 };
 
-pub use self::binary_operator::BinaryOperator;
+pub use self::binary_operator::{ArithmeticOperator, BinaryOperator, ComparisonOperator};
 use super::{util::bracketed, Identifier, Literal, ParseResult, Span};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -47,7 +47,7 @@ fn test_expressions_with_identifiers() {
                 position: input.slice(0..0),
                 value: Expression::BinaryExpression(
                     Box::new(Expression::Identifier(Identifier::new("x"))),
-                    BinaryOperator::Multiply,
+                    BinaryOperator::ArithmeticOperator(ArithmeticOperator::Multiply),
                     Box::new(Expression::Identifier(Identifier::new("x"))),
                 ),
             },
