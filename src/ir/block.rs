@@ -83,6 +83,10 @@ impl<'a, 'b> Block<'a, 'b> {
     pub(crate) fn stack_slots(&self) -> usize {
         self.stack_frame.stack_slots()
     }
+
+    pub(crate) fn requires_stack_frame(&self) -> bool {
+        self.stack_slots() > 0
+    }
 }
 
 impl<'a, 'b> std::fmt::Display for Block<'a, 'b> {
