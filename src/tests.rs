@@ -107,5 +107,35 @@ mod test {
             ),
             Value::Integer(0)
         );
+
+        assert_eq!(
+            eval(
+                "
+            def is_one(x) { 
+                if x {
+                    return 1
+                } else {
+                    return 0
+                }
+                2
+            } is_one(0)"
+            ),
+            Value::Integer(0)
+        );
+
+        assert_eq!(
+            eval(
+                "
+            def is_one(x) { 
+                if x {
+                    return 1
+                } else {
+                    return 0
+                }
+                2
+            } is_one(1)"
+            ),
+            Value::Integer(1)
+        )
     }
 }
