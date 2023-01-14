@@ -136,6 +136,51 @@ mod test {
             } is_one(1)"
             ),
             Value::Integer(1)
-        )
+        );
+
+        assert_eq!(
+            eval(
+                "
+            def this_or_that(x,y) { 
+                if x {
+                    return 1
+                } else if y {
+                    return 2
+                }
+                3
+            } this_or_that(1,0)"
+            ),
+            Value::Integer(1)
+        );
+
+        assert_eq!(
+            eval(
+                "
+            def this_or_that(x,y) { 
+                if x {
+                    return 1
+                } else if y {
+                    return 2
+                }
+                3
+            } this_or_that(0,1)"
+            ),
+            Value::Integer(2)
+        );
+
+        assert_eq!(
+            eval(
+                "
+            def this_or_that(x,y) { 
+                if x {
+                    return 1
+                } else if y {
+                    return 2
+                }
+                3
+            } this_or_that(0,0)"
+            ),
+            Value::Integer(3)
+        );
     }
 }
