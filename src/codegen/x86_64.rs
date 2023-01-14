@@ -300,6 +300,7 @@ fn codegen_block(
                             .slot_values
                             .insert(*destination, SlotValue::StackOffset(*offset));
                     }
+
                     ir::Opcode::AssignToStackVariable(offset, slot) => {
                         let value = slot_to_register(state, assembler, slot)?;
                         assembler.mov(stack_variable(*offset), value.to_gpr64())?;
