@@ -26,8 +26,9 @@ pub fn compile<'a>(
     println!("AST:\n{:?}\n", block);
 
     let mut ir_block = ir::Block::new(stack_frame);
-    let _result = compile_block(&mut ir_block, block)?;
-    // ir_block.push(ir::Opcode::Return(result));
+    compile_block(&mut ir_block, block)?;
+
+    println!("IR:\n{}", ir_block);
 
     let function = codegen::codegen(ir_block)?;
     Ok(function)

@@ -27,7 +27,6 @@ pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let mut assembler = CodeAssembler::new(64)?;
     let mut start_label = assembler.create_label();
 
-    println!("IR:\n{}", block);
     assembler.set_label(&mut start_label)?;
     codegen_block(&mut state, &mut assembler, block)?;
 
@@ -50,17 +49,7 @@ pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let mut generated_code = result.inner.code_buffer;
     // assert!(generated_code.len() == code_length);
 
-    let decoder = iced_x86::Decoder::with_ip(
-        64,
-        &generated_code,
-        memory_map.as_ptr() as u64,
-        DecoderOptions::NONE,
-    );
-
-    println!("Generated assembly:");
-    for instruction in decoder {
-        println!("  {:#X}: {}", instruction.ip(), instruction);
-    }
+    print_generated_code(&generated_code, memory_map.as_ptr() as u64);
 
     generated_code.resize(memory_map.len(), 0xcc);
     memory_map.copy_from_slice(&generated_code);
@@ -69,6 +58,15 @@ pub fn codegen(block: ir::Block) -> CodegenResult<Function> {
     let function_pointer = unsafe { std::mem::transmute::<u64, FuncPointer>(func_addr) };
     let function = Function::new(memory_map, function_pointer);
     Ok(function)
+}
+
+fn print_generated_code(generated_code: &Vec<u8>, ip: u64) {
+    let decoder = iced_x86::Decoder::with_ip(64, generated_code, ip, DecoderOptions::NONE);
+
+    println!("Generated assembly:");
+    for instruction in decoder {
+        println!("  {:#X}: {}", instruction.ip(), instruction);
+    }
 }
 
 fn codegen_block(
@@ -85,7 +83,6 @@ fn codegen_block(
     }
 
     assembler.set_label(&mut epilogue_label)?;
-
     emit_function_epilogue(assembler, block)?;
 
     Ok(())
