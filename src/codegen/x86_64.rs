@@ -333,6 +333,7 @@ fn codegen_block(
         assembler.mov(rsp, rbp)?;
         assembler.pop(rbp)?;
     }
+
     assembler.ret()?;
 
     Ok(())
