@@ -13,7 +13,7 @@ This is SUPER hacky and will probably fail to run all but the simplest programs.
 - [x] Variable definitions, e.g. `let x = 3`.
 - [x] Early return statements, e.g. `return 42`.
 - [x] Conditional statements, e.g. `if x { return 1 }`.
-- [ ] Assignment statements, e.g. `x = x + 1`.
+- [x] Assignment statements, e.g. `x = x + 1`.
 - [ ] Simple boolean expressions in conditions, e.g. `if x < 3 {}` or `if x == y {}`.
 - [ ] Compound boolean expressions in conditions, e.g. `if x > 5 && x < 10 {}`.
 - [ ] While loops, e.g. `while x < 10 { x = x + 1 }`.
