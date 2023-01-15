@@ -114,27 +114,6 @@ pub fn codegen_instruction(
                         .insert(*destination, SlotValue::StackOffset(*offset));
                 }
 
-                ir::Opcode::Assign(target, slot) => {
-                    let value = slot_to_register(state, assembler, slot)?;
-
-                    match target {
-                        AssignmentTarget::StackVariable(offset) => {
-                            assembler.mov(stack_variable_ref(*offset), value.to_gpr64())?;
-
-                            state
-                                .slot_values
-                                .insert(*destination, SlotValue::StackOffset(*offset));
-                        }
-                        AssignmentTarget::FunctionArgument(index) => {
-                            assembler.mov(parameter_register(*index)?, value.to_gpr64())?;
-
-                            state
-                                .slot_values
-                                .insert(*destination, SlotValue::FunctionArgument(*index));
-                        }
-                    }
-                }
-
                 ir::Opcode::Jump(condition, label) => {
                     let label = *state.label(assembler, label);
                     match condition {
@@ -149,6 +128,18 @@ pub fn codegen_instruction(
                     };
                 }
             };
+        }
+        ir::Instruction::Assign(target, rhs) => {
+            let value = slot_to_register(state, assembler, rhs)?;
+
+            match target {
+                AssignmentTarget::StackVariable(offset) => {
+                    assembler.mov(stack_variable_ref(*offset), value.to_gpr64())?;
+                }
+                AssignmentTarget::FunctionArgument(index) => {
+                    assembler.mov(parameter_register(*index)?, value.to_gpr64())?;
+                }
+            }
         }
     }
 

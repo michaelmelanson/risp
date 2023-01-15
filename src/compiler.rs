@@ -3,7 +3,7 @@ pub mod stack_frame;
 
 use crate::{
     codegen::{self, Function},
-    ir::{self, AssignmentTarget},
+    ir::{self, AssignmentTarget, Instruction},
     parser::{
         Assignment, BinaryOperator, Block, Condition, Expression, Identifier, Literal, Statement,
         VariableDeclaration,
@@ -59,14 +59,14 @@ fn compile_assignment_statement(block: &mut ir::Block, assignment: &Assignment) 
         Symbol::Function(_func, _arity) => todo!(),
     };
 
-    block.push(ir::Opcode::Assign(target, rhs));
+    block.push(Instruction::Assign(target, rhs));
     Ok(rhs)
 }
 
 fn compile_return_statement(block: &mut ir::Block, result: &Expression) -> CompileResult {
     let result = compile_expression(block, result)?;
-    block.push(ir::Opcode::SetReturnValue(result));
-    block.push(ir::Opcode::Return);
+    block.push_op(ir::Opcode::SetReturnValue(result));
+    block.push_op(ir::Opcode::Return);
     Ok(result)
 }
 
@@ -81,7 +81,7 @@ fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> 
 
         if let Some(ref predicate) = predicate {
             let predicate_slot = compile_expression(block, predicate)?;
-            block.push(ir::Opcode::Jump(
+            block.push_op(ir::Opcode::Jump(
                 ir::JumpCondition::IfZero(predicate_slot),
                 if is_last_branch {
                     end_label
@@ -94,7 +94,7 @@ fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> 
         compile_block(block, branch_block)?;
 
         if !is_last_branch {
-            block.push(ir::Opcode::Jump(
+            block.push_op(ir::Opcode::Jump(
                 ir::JumpCondition::Unconditional,
                 end_label,
             ));
@@ -128,7 +128,7 @@ fn compile_block(ir_block: &mut ir::Block, block: &Block) -> CompileResult {
     };
 
     if !returned {
-        ir_block.push(ir::Opcode::SetReturnValue(result));
+        ir_block.push_op(ir::Opcode::SetReturnValue(result));
     }
 
     Ok(result)
@@ -175,7 +175,7 @@ pub fn compile_binary_operator_expression(
     let lhs_slot = compile_expression(block, lhs)?;
     let rhs_slot = compile_expression(block, rhs)?;
 
-    let slot = block.push(ir::Opcode::BinaryOperator(lhs_slot, *operator, rhs_slot));
+    let slot = block.push_op(ir::Opcode::BinaryOperator(lhs_slot, *operator, rhs_slot));
     Ok(slot)
 }
 
@@ -206,15 +206,15 @@ fn compile_function_call(
         ));
     }
 
-    let return_value_slot = block.push(ir::Opcode::CallFunction(function, argument_slots));
+    let return_value_slot = block.push_op(ir::Opcode::CallFunction(function, argument_slots));
     Ok(return_value_slot)
 }
 
 fn compile_literal(block: &mut ir::Block, literal: &Literal) -> CompileResult {
     match literal {
-        Literal::Integer(int) => Ok(block.push(ir::Opcode::Literal(Value::Integer(*int)))),
+        Literal::Integer(int) => Ok(block.push_op(ir::Opcode::Literal(Value::Integer(*int)))),
         Literal::String(string) => {
-            Ok(block.push(ir::Opcode::Literal(Value::String(string.to_string()))))
+            Ok(block.push_op(ir::Opcode::Literal(Value::String(string.to_string()))))
         }
     }
 }

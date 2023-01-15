@@ -1,9 +1,10 @@
-use super::{opcode::Opcode, slot::Slot, Label};
+use super::{opcode::Opcode, slot::Slot, AssignmentTarget, Label};
 
 #[derive(Debug)]
 pub enum Instruction {
     Label(Label),
     Opcode { destination: Slot, opcode: Opcode },
+    Assign(AssignmentTarget, Slot),
 }
 
 impl Instruction {

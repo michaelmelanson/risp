@@ -30,8 +30,6 @@ pub enum Opcode {
     BinaryOperator(Slot, BinaryOperator, Slot),
     CallFunction(Rc<Function>, Vec<Slot>),
     StackVariable(usize),
-
-    Assign(AssignmentTarget, Slot),
 }
 
 impl std::fmt::Display for Opcode {
@@ -56,7 +54,6 @@ impl std::fmt::Display for Opcode {
             Opcode::SetReturnValue(slot) => write!(f, "return_value = {}", slot),
             Opcode::Return => write!(f, "return"),
             Opcode::StackVariable(offset) => write!(f, "stack@{}", offset),
-            Opcode::Assign(target, slot) => write!(f, "{} = {}", target, slot),
             Opcode::Jump(condition, label) => write!(f, "jump {} to {}", condition, label),
         }
     }

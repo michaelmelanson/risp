@@ -24,10 +24,13 @@ impl<'a, 'b> Block<'a, 'b> {
         }
     }
 
-    pub fn push(&mut self, opcode: Opcode) -> Slot {
+    pub fn push(&mut self, instruction: Instruction) {
+        self.instructions.push(instruction)
+    }
+
+    pub fn push_op(&mut self, opcode: Opcode) -> Slot {
         let destination = self.slot();
-        self.instructions
-            .push(Instruction::opcode(destination, opcode));
+        self.push(Instruction::opcode(destination, opcode));
         destination
     }
 
@@ -48,10 +51,14 @@ impl<'a, 'b> Block<'a, 'b> {
             panic!("expected stack variable");
         };
 
-        self.push(ir::Opcode::Assign(
+        let slot = self.push_op(ir::Opcode::StackVariable(offset));
+
+        self.push(Instruction::Assign(
             AssignmentTarget::StackVariable(offset),
             initial_value,
-        ))
+        ));
+
+        slot
     }
 
     pub(crate) fn resolve(&self, identifier: &Identifier) -> Option<Symbol> {
@@ -67,13 +74,13 @@ impl<'a, 'b> Block<'a, 'b> {
 
                 match symbol {
                     Symbol::Argument(index) => {
-                        let slot = self.push(ir::Opcode::FunctionArgument(index));
+                        let slot = self.push_op(ir::Opcode::FunctionArgument(index));
                         self.cache.insert(symbol, slot);
                         Some(slot)
                     }
                     Symbol::Function(_function, _arity) => todo!("resolve function to slot"),
                     Symbol::StackVariable(offset) => {
-                        let slot = self.push(ir::Opcode::StackVariable(offset));
+                        let slot = self.push_op(ir::Opcode::StackVariable(offset));
                         self.cache.insert(symbol, slot);
                         Some(slot)
                     }
@@ -104,6 +111,9 @@ impl<'a, 'b> std::fmt::Display for Block<'a, 'b> {
                     opcode,
                 } => {
                     writeln!(f, "  {} = {}", destination, opcode)?;
+                }
+                Instruction::Assign(target, rhs) => {
+                    writeln!(f, "  {} = {}", target, rhs)?;
                 }
             }
         }
