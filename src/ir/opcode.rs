@@ -1,8 +1,23 @@
 use std::rc::Rc;
 
-use crate::{compiler::Function, parser::BinaryOperator, value::Value};
+use crate::{codegen::Function, parser::BinaryOperator, value::Value};
 
 use super::{jump_condition::JumpCondition, slot::Slot, Label};
+
+#[derive(Debug)]
+pub enum AssignmentTarget {
+    StackVariable(usize),
+    FunctionArgument(usize),
+}
+
+impl std::fmt::Display for AssignmentTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssignmentTarget::StackVariable(offset) => write!(f, "stack@{}", offset),
+            AssignmentTarget::FunctionArgument(index) => write!(f, "arg@{}", index),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum Opcode {
@@ -16,7 +31,7 @@ pub enum Opcode {
     CallFunction(Rc<Function>, Vec<Slot>),
     StackVariable(usize),
 
-    AssignToStackVariable(usize, Slot),
+    Assign(AssignmentTarget, Slot),
 }
 
 impl std::fmt::Display for Opcode {
@@ -41,7 +56,7 @@ impl std::fmt::Display for Opcode {
             Opcode::SetReturnValue(slot) => write!(f, "return_value = {}", slot),
             Opcode::Return => write!(f, "return"),
             Opcode::StackVariable(offset) => write!(f, "stack@{}", offset),
-            Opcode::AssignToStackVariable(offset, slot) => write!(f, "stack@{} = {}", offset, slot),
+            Opcode::Assign(target, slot) => write!(f, "{} = {}", target, slot),
             Opcode::Jump(condition, label) => write!(f, "jump {} to {}", condition, label),
         }
     }

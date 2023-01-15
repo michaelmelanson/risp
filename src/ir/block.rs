@@ -6,7 +6,7 @@ use crate::{
     parser::Identifier,
 };
 
-use super::{instruction::Instruction, opcode::Opcode, slot::Slot, Label};
+use super::{instruction::Instruction, opcode::Opcode, slot::Slot, AssignmentTarget, Label};
 
 #[derive(Debug)]
 pub struct Block<'a, 'b> {
@@ -48,7 +48,10 @@ impl<'a, 'b> Block<'a, 'b> {
             panic!("expected stack variable");
         };
 
-        self.push(ir::Opcode::AssignToStackVariable(offset, initial_value))
+        self.push(ir::Opcode::Assign(
+            AssignmentTarget::StackVariable(offset),
+            initial_value,
+        ))
     }
 
     pub(crate) fn resolve(&self, identifier: &Identifier) -> Option<Symbol> {

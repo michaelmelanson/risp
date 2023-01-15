@@ -7,5 +7,5 @@ mod slot;
 
 pub use self::{
     block::Block, instruction::Instruction, jump_condition::JumpCondition, label::Label,
-    opcode::Opcode, slot::Slot,
+    opcode::AssignmentTarget, opcode::Opcode, slot::Slot,
 };

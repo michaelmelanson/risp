@@ -1,3 +1,4 @@
+mod assignment;
 mod condition;
 mod expression;
 mod function_definition;
@@ -6,15 +7,18 @@ mod variable_declaration;
 
 use nom::branch::alt;
 
-use super::{expression::Expression, ParseResult, Span};
+use super::{Expression, ParseResult, Span};
 
 use self::{
-    condition::parse_condition_statement, expression::parse_expression_statement,
+    assignment::parse_assignment_statement, condition::parse_condition_statement,
+    expression::parse_expression_statement,
     function_definition::parse_function_definition_statement,
     return_statement::parse_return_statement,
     variable_declaration::parse_variable_declaration_statement,
 };
+
 pub use self::{
+    assignment::Assignment,
     condition::Condition,
     function_definition::{parse_function_definition, FunctionDefinition},
     variable_declaration::VariableDeclaration,
@@ -27,6 +31,7 @@ pub enum Statement {
     VariableDeclaration(VariableDeclaration),
     Condition(Condition),
     Return(Expression),
+    Assignment(Assignment),
 }
 
 pub fn parse_statement(input: Span) -> ParseResult<Statement> {
@@ -35,6 +40,7 @@ pub fn parse_statement(input: Span) -> ParseResult<Statement> {
         parse_variable_declaration_statement,
         parse_condition_statement,
         parse_return_statement,
+        parse_assignment_statement,
         parse_expression_statement,
     ))(input)
 }

@@ -4,7 +4,7 @@ use iced_x86::code_asm::{get_gpr64, rax, AsmRegister64, CodeAssembler, CodeLabel
 
 use crate::{
     codegen::CodegenResult,
-    ir,
+    ir::{self, AssignmentTarget},
     parser::{ArithmeticOperator, BinaryOperator},
 };
 
@@ -114,13 +114,25 @@ pub fn codegen_instruction(
                         .insert(*destination, SlotValue::StackOffset(*offset));
                 }
 
-                ir::Opcode::AssignToStackVariable(offset, slot) => {
+                ir::Opcode::Assign(target, slot) => {
                     let value = slot_to_register(state, assembler, slot)?;
-                    assembler.mov(stack_variable_ref(*offset), value.to_gpr64())?;
 
-                    state
-                        .slot_values
-                        .insert(*destination, SlotValue::StackOffset(*offset));
+                    match target {
+                        AssignmentTarget::StackVariable(offset) => {
+                            assembler.mov(stack_variable_ref(*offset), value.to_gpr64())?;
+
+                            state
+                                .slot_values
+                                .insert(*destination, SlotValue::StackOffset(*offset));
+                        }
+                        AssignmentTarget::FunctionArgument(index) => {
+                            assembler.mov(parameter_register(*index)?, value.to_gpr64())?;
+
+                            state
+                                .slot_values
+                                .insert(*destination, SlotValue::FunctionArgument(*index));
+                        }
+                    }
                 }
 
                 ir::Opcode::Jump(condition, label) => {

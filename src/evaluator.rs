@@ -58,7 +58,8 @@ impl<'a> Evaluator<'a> {
             }
             Statement::Expression(_expression) => {}
             Statement::Condition(_condition) => {}
-            Statement::Return(_) => {}
+            Statement::Return(_) => todo!(),
+            Statement::Assignment(_) => todo!(),
         }
         Ok(())
     }

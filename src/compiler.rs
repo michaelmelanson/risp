@@ -1,11 +1,11 @@
 mod error;
-mod function;
 pub mod stack_frame;
 
 use crate::{
-    codegen, ir,
+    codegen::{self, Function},
+    ir::{self, AssignmentTarget},
     parser::{
-        BinaryOperator, Block, Condition, Expression, Identifier, Literal, Statement,
+        Assignment, BinaryOperator, Block, Condition, Expression, Identifier, Literal, Statement,
         VariableDeclaration,
     },
     value::Value,
@@ -13,7 +13,6 @@ use crate::{
 
 pub use self::{
     error::{CompileError, CompilerError},
-    function::Function,
     stack_frame::{StackFrame, Symbol},
 };
 
@@ -43,7 +42,25 @@ fn compile_statement(block: &mut ir::Block, statement: &Statement) -> CompileRes
         }
         Statement::Condition(condition) => compile_condition_statement(block, condition),
         Statement::Return(result) => compile_return_statement(block, result),
+        Statement::Assignment(assignment) => compile_assignment_statement(block, assignment),
     }
+}
+
+fn compile_assignment_statement(block: &mut ir::Block, assignment: &Assignment) -> CompileResult {
+    let rhs = compile_expression(block, &assignment.rhs)?;
+    let lhs = assignment.lhs.clone();
+    let lhs = block
+        .resolve(&lhs)
+        .ok_or(CompileError::UnresolvedSymbol(lhs))?;
+
+    let target = match lhs {
+        Symbol::Argument(index) => AssignmentTarget::FunctionArgument(index),
+        Symbol::StackVariable(offset) => AssignmentTarget::StackVariable(offset),
+        Symbol::Function(_func, _arity) => todo!(),
+    };
+
+    block.push(ir::Opcode::Assign(target, rhs));
+    Ok(rhs)
 }
 
 fn compile_return_statement(block: &mut ir::Block, result: &Expression) -> CompileResult {

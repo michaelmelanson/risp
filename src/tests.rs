@@ -183,4 +183,18 @@ mod test {
             Value::Integer(3)
         );
     }
+
+    #[test]
+    fn test_assignment() {
+        assert_eq!(
+            eval(
+                "
+            def add_one(x) { 
+                x = x + 1
+                x
+            } add_one(41)"
+            ),
+            Value::Integer(42)
+        );
+    }
 }

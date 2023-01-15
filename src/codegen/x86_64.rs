@@ -1,22 +1,21 @@
 mod abi;
 mod codegen_state;
 mod error;
+mod function;
 mod instruction;
 mod register_allocation;
 mod slot;
 
 use iced_x86::{code_asm::CodeAssembler, BlockEncoderOptions, DecoderOptions};
 
-use crate::{
-    codegen::x86_64::codegen_state::CodegenState, compiler::Function, ir, value::EncodedValue,
-};
+use crate::{codegen::x86_64::codegen_state::CodegenState, ir, value::EncodedValue};
 
 use self::{
     abi::{emit_function_epilogue, emit_function_prelude},
     instruction::codegen_instruction,
     register_allocation::ReserveMode,
 };
-pub use self::{error::CodegenError, register_allocation::Register};
+pub use self::{error::CodegenError, function::Function, register_allocation::Register};
 
 use super::CodegenResult;
 
