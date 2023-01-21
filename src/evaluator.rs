@@ -60,6 +60,7 @@ impl<'a> Evaluator<'a> {
             Statement::Condition(_condition) => {}
             Statement::Return(_) => todo!(),
             Statement::Assignment(_) => todo!(),
+            Statement::Loop(_) => todo!(),
         }
         Ok(())
     }

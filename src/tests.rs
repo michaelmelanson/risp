@@ -197,4 +197,22 @@ mod test {
             Value::Integer(42)
         );
     }
+
+    #[test]
+    fn test_while_loop() {
+        assert_eq!(
+            eval(
+                "
+            def pow(base, exp) {
+                let result = 1
+                while exp {
+                    result = result * base
+                    exp = exp - 1
+                }
+                result
+            } pow(4, 2)"
+            ),
+            Value::Integer(16)
+        )
+    }
 }

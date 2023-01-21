@@ -3,10 +3,10 @@ pub mod stack_frame;
 
 use crate::{
     codegen::{self, Function},
-    ir::{self, AssignmentTarget, Instruction},
+    ir::{self, AssignmentTarget, Instruction, Slot},
     parser::{
-        Assignment, BinaryOperator, Block, Condition, Expression, Identifier, Literal, Statement,
-        VariableDeclaration,
+        Assignment, BinaryOperator, Block, Condition, Expression, Identifier, Literal, Loop,
+        LoopPredicatePosition, Statement, VariableDeclaration,
     },
     value::Value,
 };
@@ -25,7 +25,7 @@ pub fn compile<'a>(
     println!("AST:\n{:?}\n", block);
 
     let mut ir_block = ir::Block::new(stack_frame);
-    compile_block(&mut ir_block, block)?;
+    compile_function_body(&mut ir_block, block)?;
 
     println!("IR:\n{}", ir_block);
 
@@ -43,7 +43,33 @@ fn compile_statement(block: &mut ir::Block, statement: &Statement) -> CompileRes
         Statement::Condition(condition) => compile_condition_statement(block, condition),
         Statement::Return(result) => compile_return_statement(block, result),
         Statement::Assignment(assignment) => compile_assignment_statement(block, assignment),
+        Statement::Loop(loop_statement) => compile_loop_statement(block, loop_statement),
     }
+}
+
+fn compile_loop_statement(block: &mut ir::Block, loop_statement: &Loop) -> CompileResult {
+    let start_label = ir::Label::new();
+    let test_label = ir::Label::new();
+
+    if loop_statement.predicate_position == LoopPredicatePosition::BeforeBlock {
+        block.push_op(ir::Opcode::Jump(
+            ir::JumpCondition::Unconditional,
+            test_label,
+        ));
+    }
+
+    block.push(Instruction::Label(start_label));
+    compile_block(block, &loop_statement.block)?;
+
+    block.push(Instruction::Label(test_label));
+    let test_result = compile_expression(block, &loop_statement.predicate)?;
+
+    block.push_op(ir::Opcode::Jump(
+        ir::JumpCondition::IfNotZero(test_result),
+        start_label,
+    ));
+
+    Ok(Slot::new())
 }
 
 fn compile_assignment_statement(block: &mut ir::Block, assignment: &Assignment) -> CompileResult {
@@ -109,7 +135,15 @@ fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> 
     Ok(result_slot)
 }
 
-fn compile_block(ir_block: &mut ir::Block, block: &Block) -> CompileResult {
+fn compile_block(ir_block: &mut ir::Block, block: &Block) -> CompileResult<()> {
+    for statement in &block.0 {
+        compile_statement(ir_block, statement)?;
+    }
+
+    Ok(())
+}
+
+fn compile_function_body(ir_block: &mut ir::Block, block: &Block) -> CompileResult {
     let mut result = None;
 
     let mut returned = false;

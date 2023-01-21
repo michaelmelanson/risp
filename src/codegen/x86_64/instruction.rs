@@ -125,6 +125,11 @@ pub fn codegen_instruction(
                             assembler.cmp(slot_register.to_gpr64(), 0)?;
                             assembler.je(label)?;
                         }
+                        ir::JumpCondition::IfNotZero(slot) => {
+                            let slot_register = slot_to_register(state, assembler, slot)?;
+                            assembler.cmp(slot_register.to_gpr64(), 0)?;
+                            assembler.jne(label)?;
+                        }
                     };
                 }
             };

@@ -102,3 +102,7 @@ pub fn else_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
 pub fn return_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
     keyword("return")(input)
 }
+
+pub fn while_keyword(input: Span<'_>) -> ParseResult<'_, Span<'_>> {
+    keyword("while")(input)
+}

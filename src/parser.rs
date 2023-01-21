@@ -15,7 +15,10 @@ pub use self::{
     },
     identifier::{parse_identifier, Identifier},
     literal::{parse_literal, Literal},
-    statement::{parse_statement, Assignment, Condition, Statement, VariableDeclaration},
+    statement::{
+        parse_statement, Assignment, Condition, Loop, LoopPredicatePosition, Statement,
+        VariableDeclaration,
+    },
 };
 
 pub type Span<'a> = nom_locate::LocatedSpan<&'a str>;
