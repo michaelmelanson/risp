@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use iced_x86::code_asm::{get_gpr64, rax, AsmRegister64, CodeAssembler, CodeLabel};
 
 use crate::{
@@ -11,7 +9,7 @@ use crate::{
 use super::{
     abi::{parameter_register, stack_variable_ref},
     codegen_state::CodegenState,
-    register_allocation::RegisterLease,
+    register_allocation::ReserveMode,
     slot::{slot_to_register, SlotValue},
     Register,
 };
@@ -79,6 +77,7 @@ pub fn codegen_instruction(
                     for (index, arg) in args.iter().enumerate() {
                         let dest_register = parameter_register(index)?;
                         let arg_register = slot_to_register(state, assembler, arg)?;
+
                         assembler.mov::<AsmRegister64, AsmRegister64>(
                             dest_register,
                             arg_register.to_gpr64(),
@@ -86,10 +85,12 @@ pub fn codegen_instruction(
                     }
 
                     assembler.call(func.address() as u64)?;
-                    state.slot_values.insert(
-                        *destination,
-                        SlotValue::Register(Rc::new(RegisterLease(Register::RAX))),
-                    );
+                    let register = state
+                        .registers
+                        .reserve_specific_register(Register::RAX, ReserveMode::AllowReuse)?;
+                    state
+                        .slot_values
+                        .insert(*destination, SlotValue::Register(register));
                 }
 
                 ir::Opcode::FunctionArgument(index) => {

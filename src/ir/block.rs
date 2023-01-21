@@ -75,13 +75,13 @@ impl<'a, 'b> Block<'a, 'b> {
                 match symbol {
                     Symbol::Argument(index) => {
                         let slot = self.push_op(ir::Opcode::FunctionArgument(index));
-                        self.cache.insert(symbol, slot);
+                        // self.cache.insert(symbol, slot);
                         Some(slot)
                     }
                     Symbol::Function(_function, _arity) => todo!("resolve function to slot"),
                     Symbol::StackVariable(offset) => {
                         let slot = self.push_op(ir::Opcode::StackVariable(offset));
-                        self.cache.insert(symbol, slot);
+                        // self.cache.insert(symbol, slot);
                         Some(slot)
                     }
                 }

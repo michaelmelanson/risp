@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use iced_x86::code_asm::CodeAssembler;
 
@@ -8,7 +8,7 @@ use super::{register_allocation::RegisterAllocator, slot::SlotValue};
 
 pub struct CodegenState {
     pub slot_values: HashMap<ir::Slot, SlotValue>,
-    pub registers: RegisterAllocator,
+    pub registers: Rc<RegisterAllocator>,
     labels: HashMap<ir::Label, iced_x86::code_asm::CodeLabel>,
 }
 
@@ -16,7 +16,7 @@ impl CodegenState {
     pub fn new() -> Self {
         Self {
             slot_values: HashMap::new(),
-            registers: RegisterAllocator::new(),
+            registers: Rc::new(RegisterAllocator::new()),
             labels: HashMap::new(),
         }
     }
