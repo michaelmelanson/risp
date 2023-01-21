@@ -13,7 +13,6 @@ use crate::{codegen::x86_64::codegen_state::CodegenState, ir, value::EncodedValu
 use self::{
     abi::{emit_function_epilogue, emit_function_prelude},
     instruction::codegen_instruction,
-    register_allocation::ReserveMode,
 };
 pub use self::{error::CodegenError, function::Function, register_allocation::Register};
 

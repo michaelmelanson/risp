@@ -33,7 +33,7 @@ pub fn slot_to_register(
         Some(SlotValue::Register(register)) => Ok(register.clone()),
         Some(SlotValue::Literal(literal)) => {
             let value: EncodedValue = literal.try_into().map_err(CodegenError::ValueEncodeError)?;
-            let reg = state.reserve_register()?;
+            let reg = state.registers.reserve_register()?;
 
             let value = unsafe { value.encoded_value() };
             assembler.mov(reg.to_gpr64(), value)?;
@@ -42,7 +42,7 @@ pub fn slot_to_register(
         }
 
         Some(SlotValue::FunctionArgument(index)) => {
-            let register = state.reserve_specific_register(
+            let register = state.registers.reserve_specific_register(
                 parameter_register(*index)?.into(),
                 ReserveMode::AllowReuse,
             )?;
@@ -51,7 +51,7 @@ pub fn slot_to_register(
 
         Some(SlotValue::StackOffset(offset)) => {
             let offset = *offset;
-            let reg = state.reserve_register()?;
+            let reg = state.registers.reserve_register()?;
             assembler.mov(reg.to_gpr64(), stack_variable_ref(offset))?;
             Ok(reg)
         }

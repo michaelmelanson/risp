@@ -1,4 +1,13 @@
+use std::{
+    collections::{BTreeSet, HashSet},
+    rc::Rc,
+};
+
 use iced_x86::code_asm::{get_gpr64, AsmRegister64};
+
+use crate::codegen::CodegenResult;
+
+use super::CodegenError;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ReserveMode {
@@ -22,3 +31,70 @@ impl RegisterLease {
 }
 
 pub type Register = iced_x86::Register;
+
+fn all_registers() -> BTreeSet<Register> {
+    BTreeSet::from([
+        // Register::RAX,
+        // Register::RBX,
+        Register::RCX, // Register::RDX,
+        // Register::RBP,
+        Register::RSI,
+        Register::RDI,
+        Register::R8,
+        Register::R9,
+        Register::R10,
+        Register::R11,
+        // Register::R12,
+        // Register::R13,
+        // Register::R14,
+        // Register::R15,
+    ])
+}
+
+pub struct RegisterAllocator {
+    used_registers: HashSet<Register>,
+}
+
+impl RegisterAllocator {
+    pub fn new() -> Self {
+        Self {
+            used_registers: HashSet::new(),
+        }
+    }
+
+    fn is_register_available(&self, register: Register) -> bool {
+        !self.used_registers.contains(&register)
+    }
+
+    fn next_available_register(&mut self) -> Option<Register> {
+        for register in all_registers() {
+            if self.is_register_available(register) {
+                return Some(register);
+            }
+        }
+
+        None
+    }
+
+    pub fn reserve_register(&mut self) -> CodegenResult<Rc<RegisterLease>> {
+        let Some(register) = self.next_available_register() else {
+            return Err(CodegenError::NotImplemented("register spilling — no available registers".to_owned()));
+        };
+
+        self.reserve_specific_register(register, ReserveMode::DenyReuse)
+    }
+
+    pub fn reserve_specific_register(
+        &mut self,
+        register: Register,
+        mode: ReserveMode,
+    ) -> CodegenResult<Rc<RegisterLease>> {
+        if mode == ReserveMode::DenyReuse && !self.is_register_available(register) {
+            return Err(CodegenError::RegisterNotAvailable(register));
+        }
+
+        self.used_registers.insert(register);
+        let lease = RegisterLease(register);
+        Ok(Rc::new(lease))
+    }
+}
