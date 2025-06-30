@@ -1,0 +1,15 @@
+// Project tasks configuration. See https://zed.dev/docs/tasks for documentation.
+//
+// Example:
+[
+  {
+    "label": "Run",
+    "command": "cargo run -p risp --target=x86_64-apple-darwin",
+    "allow_concurrent_runs": true
+  },
+  {
+    "label": "Test",
+    "command": "cargo test -p risp --target=x86_64-apple-darwin",
+    "allow_concurrent_runs": false
+  }
+]
