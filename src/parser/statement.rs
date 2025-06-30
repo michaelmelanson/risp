@@ -21,7 +21,7 @@ use self::{
 pub use self::{
     assignment::Assignment,
     condition::Condition,
-    function_definition::{parse_function_definition, FunctionDefinition},
+    function_definition::FunctionDefinition,
     loop_statement::{Loop, LoopPredicatePosition},
     variable_declaration::VariableDeclaration,
 };

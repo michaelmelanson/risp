@@ -1,7 +1,7 @@
 use super::{util::ignore_whitespace, ParseResult, Span, Token};
 use nom::bytes::complete::tag;
 
-fn token<'a>(c: &'a str) -> impl FnMut(Span<'a>) -> ParseResult<String> {
+fn token<'a>(c: &'a str) -> impl FnMut(Span<'a>) -> ParseResult<'a, String> {
     move |input| {
         let (input, token) = ignore_whitespace(tag(c))(input)?;
         Ok((
@@ -14,7 +14,7 @@ fn token<'a>(c: &'a str) -> impl FnMut(Span<'a>) -> ParseResult<String> {
     }
 }
 
-fn keyword(k: &str) -> impl FnMut(Span) -> ParseResult<Span> + '_ {
+fn keyword(k: &str) -> impl FnMut(Span) -> ParseResult<'_, Span> + '_ {
     move |input| {
         let (input, token) = ignore_whitespace(tag(k))(input)?;
         Ok((

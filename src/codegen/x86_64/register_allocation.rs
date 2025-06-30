@@ -88,7 +88,9 @@ impl RegisterAllocator {
 
     pub fn reserve_register(self: &Rc<RegisterAllocator>) -> CodegenResult<Rc<RegisterLease>> {
         let Some(register) = self.next_available_register() else {
-            return Err(CodegenError::NotImplemented("register spilling — no available registers".to_owned()));
+            return Err(CodegenError::NotImplemented(
+                "register spilling — no available registers".to_owned(),
+            ));
         };
 
         self.reserve_specific_register(register, ReserveMode::DenyReuse)
@@ -103,14 +105,12 @@ impl RegisterAllocator {
             return Err(CodegenError::RegisterNotAvailable(register));
         }
 
-        println!("Allocated register {:?}", register);
         self.used_registers.borrow_mut().insert(register);
         let lease = RegisterLease(register, Rc::<RegisterAllocator>::downgrade(self));
         Ok(Rc::new(lease))
     }
 
     pub fn free_register(self: &Rc<RegisterAllocator>, register: &Register) {
-        println!("Freed register {:?}", register);
         self.used_registers.borrow_mut().remove(register);
     }
 }

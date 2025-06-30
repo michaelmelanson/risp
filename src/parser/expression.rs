@@ -14,7 +14,7 @@ use self::{
     literal::parse_literal_expression,
 };
 
-pub use self::binary_operator::{ArithmeticOperator, BinaryOperator, ComparisonOperator};
+pub use self::binary_operator::{ArithmeticOperator, BinaryOperator};
 use super::{util::bracketed, Identifier, Literal, ParseResult, Span};
 
 #[derive(Clone, Debug, PartialEq)]

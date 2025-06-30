@@ -14,7 +14,7 @@ pub struct Function {
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr == other.ptr
+        std::ptr::fn_addr_eq(self.ptr, other.ptr)
     }
 }
 

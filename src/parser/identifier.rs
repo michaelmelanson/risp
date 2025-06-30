@@ -52,7 +52,6 @@ pub fn parse_identifier(input: Span) -> ParseResult<Identifier> {
         _ => (input, ()),
     };
 
-    println!("Identifier: {:?}", value);
     Ok((
         input,
         Token {
