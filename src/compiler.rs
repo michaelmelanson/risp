@@ -3,10 +3,10 @@ pub mod stack_frame;
 
 use crate::{
     codegen::{self, Function},
-    ir::{self, AssignmentTarget, Instruction, Slot},
+    ir::{self, AssignmentTarget, Instruction, Opcode, Slot},
     parser::{
-        Assignment, BinaryOperator, Block, Condition, Expression, Identifier, Literal, Loop,
-        LoopPredicatePosition, Statement, VariableDeclaration,
+        Assignment, BinaryOperator, Block, ComparisonOperator, Condition, Expression, Identifier,
+        Literal, Loop, LoopPredicatePosition, Statement, VariableDeclaration,
     },
     value::Value,
 };
@@ -22,7 +22,7 @@ pub fn compile<'a>(
     stack_frame: &'a mut StackFrame<'_>,
     block: &Block,
 ) -> Result<Function, CompilerError> {
-    println!("AST:\n{:?}\n", block);
+    println!("AST:\n{:#?}\n", block);
 
     let mut ir_block = ir::Block::new(stack_frame);
     compile_function_body(&mut ir_block, block)?;
@@ -48,28 +48,80 @@ fn compile_statement(block: &mut ir::Block, statement: &Statement) -> CompileRes
 }
 
 fn compile_loop_statement(block: &mut ir::Block, loop_statement: &Loop) -> CompileResult {
-    let start_label = ir::Label::new();
-    let test_label = ir::Label::new();
+    let start_label = ir::Label::new("loop start");
+    let test_label = ir::Label::new("loop test");
+    let after_label = ir::Label::new("loop after");
 
     if loop_statement.predicate_position == LoopPredicatePosition::BeforeBlock {
         block.push_op(ir::Opcode::Jump(
             ir::JumpCondition::Unconditional,
-            test_label,
+            test_label.clone(),
         ));
     }
 
-    block.push(Instruction::Label(start_label));
+    block.set_label(start_label.clone());
     compile_block(block, &loop_statement.block)?;
 
-    block.push(Instruction::Label(test_label));
-    let test_result = compile_expression(block, &loop_statement.predicate)?;
+    block.set_label(test_label);
+    compile_predicate(
+        block,
+        &loop_statement.predicate,
+        start_label.clone(),
+        Some(after_label.clone()),
+    )?;
 
-    block.push_op(ir::Opcode::Jump(
-        ir::JumpCondition::IfNotZero(test_result),
-        start_label,
-    ));
+    block.set_label(after_label.clone());
 
     Ok(Slot::new())
+}
+
+fn compile_predicate(
+    block: &mut ir::Block<'_, '_>,
+    predicate: &Expression,
+    true_target: ir::Label,
+    false_target: Option<ir::Label>,
+) -> CompileResult {
+    match predicate {
+        Expression::Identifier(identifier) => {
+            let identifier = compile_identifier(block, identifier)?;
+            block.push_op(Opcode::Jump(
+                ir::JumpCondition::NotZero(identifier),
+                true_target,
+            ));
+            if let Some(false_target) = false_target {
+                block.push_op(Opcode::Jump(ir::JumpCondition::Unconditional, false_target));
+            }
+            Ok(Slot::new())
+        }
+        Expression::FunctionCall(_identifier, _expressions) => todo!("function call in predicate"),
+        Expression::Literal(_literal) => todo!("literal in predicate"),
+        Expression::BinaryExpression(_lhs, BinaryOperator::ArithmeticOperator(op), _rhs) => {
+            match op {
+                op => unimplemented!("predicate arithmetic operator {op:?}"),
+            }
+        }
+        Expression::BinaryExpression(lhs, BinaryOperator::ComparisonOperator(op), rhs) => {
+            let lhs = compile_expression(block, lhs)?;
+            let rhs = compile_expression(block, rhs)?;
+
+            let condition = match op {
+                ComparisonOperator::GreaterThan => ir::JumpCondition::Greater(lhs, rhs),
+                ComparisonOperator::LessThan => ir::JumpCondition::Less(lhs, rhs),
+                ComparisonOperator::Equal => ir::JumpCondition::Equal(lhs, rhs),
+                ComparisonOperator::NotEqual => ir::JumpCondition::NotEqual(lhs, rhs),
+                ComparisonOperator::GreaterOrEqual => ir::JumpCondition::GreaterOrEqual(lhs, rhs),
+                ComparisonOperator::LessOrEqual => ir::JumpCondition::LessOrEqual(lhs, rhs),
+            };
+
+            block.push_op(Opcode::Jump(condition, true_target));
+
+            if let Some(false_target) = false_target {
+                block.push_op(Opcode::Jump(ir::JumpCondition::Unconditional, false_target));
+            }
+
+            Ok(Slot::new())
+        }
+    }
 }
 
 fn compile_assignment_statement(block: &mut ir::Block, assignment: &Assignment) -> CompileResult {
@@ -97,50 +149,57 @@ fn compile_return_statement(block: &mut ir::Block, result: &Expression) -> Compi
 }
 
 fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> CompileResult {
-    let next_branch = ir::Label::new();
-    let end_label = ir::Label::new();
+    let next_branch = ir::Label::new("condition next");
+    let end_label = ir::Label::new("condition end");
 
     let branch_count = condition.branches.len();
+    let mut branch_results = Vec::<Slot>::with_capacity(branch_count);
 
     for (index, (predicate, branch_block)) in condition.branches.iter().enumerate() {
         let is_last_branch = index == branch_count - 1;
 
+        let block_label = ir::Label::new("condition block");
+
         if let Some(ref predicate) = predicate {
-            let predicate_slot = compile_expression(block, predicate)?;
-            block.push_op(ir::Opcode::Jump(
-                ir::JumpCondition::IfZero(predicate_slot),
+            compile_predicate(
+                block,
+                predicate,
+                block_label.clone(),
                 if is_last_branch {
-                    end_label
+                    Some(end_label.clone())
                 } else {
-                    next_branch
+                    Some(next_branch.clone())
                 },
-            ));
+            )?;
+            block.set_label(block_label.clone());
         }
 
-        compile_block(block, branch_block)?;
+        let result = compile_block(block, branch_block)?;
+        branch_results.push(result);
 
         if !is_last_branch {
             block.push_op(ir::Opcode::Jump(
                 ir::JumpCondition::Unconditional,
-                end_label,
+                end_label.clone(),
             ));
-
-            block.set_label(next_branch);
+            block.set_label(next_branch.clone());
         }
     }
 
-    block.set_label(end_label);
+    block.set_label(end_label.clone());
 
-    let result_slot = ir::Slot::new();
-    Ok(result_slot)
+    let result = block.push_op(ir::Opcode::Phi(branch_results));
+    Ok(result)
 }
 
-fn compile_block(ir_block: &mut ir::Block, block: &Block) -> CompileResult<()> {
+fn compile_block(ir_block: &mut ir::Block, block: &Block) -> CompileResult {
+    let mut result = None;
+
     for statement in &block.0 {
-        compile_statement(ir_block, statement)?;
+        result = Some(compile_statement(ir_block, statement)?);
     }
 
-    Ok(())
+    Ok(result.unwrap())
 }
 
 fn compile_function_body(ir_block: &mut ir::Block, block: &Block) -> CompileResult {
@@ -157,13 +216,16 @@ fn compile_function_body(ir_block: &mut ir::Block, block: &Block) -> CompileResu
         }
     }
 
-    let Some(result ) = result else {
-        unimplemented!("empty block");
+    let result = match result {
+        Some(result) => result,
+        None => compile_literal(ir_block, &Literal::Integer(0))?,
     };
 
     if !returned {
         ir_block.push_op(ir::Opcode::SetReturnValue(result));
     }
+
+    ir_block.push_op(ir::Opcode::Return);
 
     Ok(result)
 }
@@ -225,12 +287,15 @@ fn compile_function_call(
     }
 
     let Some(identifier_symbol) = block.resolve(identifier) else {
-                  return Err(CompileError::UnresolvedSymbol(identifier.clone()));
-              };
+        return Err(CompileError::UnresolvedSymbol(identifier.clone()));
+    };
 
     let Symbol::Function(function, arity) = identifier_symbol else {
-                  return Err(CompileError::NotImplemented(format!("calling symbol {:?}", identifier_symbol)));
-              };
+        return Err(CompileError::NotImplemented(format!(
+            "calling symbol {:?}",
+            identifier_symbol
+        )));
+    };
 
     if argument_slots.len() != arity {
         return Err(CompileError::IncorrectArity(

@@ -46,9 +46,9 @@ mod test {
     fn test_function_evaluation() {
         assert_eq!(
             eval(
-                "def add_one(x) { 
+                "def add_one(x) {
                     1 + x
-                } 
+                }
                 add_one(54)"
             ),
             Value::Integer(55)
@@ -84,11 +84,11 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def is_one(x) { 
+            def is_one(x) {
                 if x {
                     return 1
                 }
-                
+
                 0
             } is_one(1)"
             ),
@@ -98,7 +98,7 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def is_one(x) { 
+            def is_one(x) {
                 if x {
                     return 1
                 }
@@ -111,7 +111,7 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def is_one(x) { 
+            def is_one(x) {
                 if x {
                     return 1
                 } else {
@@ -126,7 +126,7 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def is_one(x) { 
+            def is_one(x) {
                 if x {
                     return 1
                 } else {
@@ -141,7 +141,7 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def this_or_that(x,y) { 
+            def this_or_that(x,y) {
                 if x {
                     return 1
                 } else if y {
@@ -156,7 +156,7 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def this_or_that(x,y) { 
+            def this_or_that(x,y) {
                 if x {
                     return 1
                 } else if y {
@@ -171,7 +171,7 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def this_or_that(x,y) { 
+            def this_or_that(x,y) {
                 if x {
                     return 1
                 } else if y {
@@ -189,7 +189,7 @@ mod test {
         assert_eq!(
             eval(
                 "
-            def add_one(x) { 
+            def add_one(x) {
                 x = x + 1
                 x
             } add_one(41)"
@@ -214,6 +214,35 @@ mod test {
             pow(4, 2)"
             ),
             Value::Integer(16)
+        )
+    }
+
+    #[test]
+    fn test_while_loop_binary_condition() {
+        assert_eq!(
+            eval(
+                "
+            def pow(base, exp) {
+                let result = 1
+                while exp > 0 {
+                    result = result * base
+                    exp = exp - 1
+                }
+                result
+            }
+            pow(4, 2)"
+            ),
+            Value::Integer(16)
+        );
+        assert_eq!(
+            eval(
+                "
+            def test() {
+                if 1 < 2 { 'pass' } else { 'fail' }
+            }
+            test()"
+            ),
+            Value::String("pass".into())
         )
     }
 }

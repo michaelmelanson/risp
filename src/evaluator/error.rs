@@ -52,9 +52,7 @@ impl<'a> Display for EvaluationError<'a> {
                     codegen::CodegenError::InternalError(message) => {
                         write!(f, "internal error: {}", message)
                     }
-                    codegen::CodegenError::RegisterNotAvailable(register) => {
-                        write!(f, "register not available: {:?}", register)
-                    }
+
                     codegen::CodegenError::ValueEncodeError(err) => {
                         write!(f, "value encoding error: {:?}", err)
                     }

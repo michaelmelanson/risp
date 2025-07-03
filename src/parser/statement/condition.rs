@@ -84,3 +84,42 @@ fn parse_else_branch(input: Span) -> ParseResult<(Option<Expression>, Block)> {
         },
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use nom::Slice;
+
+    use crate::{
+        parser::{
+            statement::condition::parse_condition, BinaryOperator, Block, ComparisonOperator,
+            Expression, Literal, Statement, Token,
+        },
+        tests::parse_test,
+    };
+
+    use super::Condition;
+
+    #[test]
+    fn test_parse_condition_1() {
+        parse_test(parse_condition, "if 1 < 2 { \"hello\" }", |input| {
+            (
+                input.slice(20..),
+                Token {
+                    position: input.slice(0..0),
+                    value: Condition {
+                        branches: vec![(
+                            Some(Expression::BinaryExpression(
+                                Box::new(Expression::Literal(Literal::Integer(1))),
+                                BinaryOperator::ComparisonOperator(ComparisonOperator::LessThan),
+                                Box::new(Expression::Literal(Literal::Integer(2))),
+                            )),
+                            Block(vec![Statement::Expression(Expression::Literal(
+                                Literal::String("hello".to_string()),
+                            ))]),
+                        )],
+                    },
+                },
+            )
+        });
+    }
+}

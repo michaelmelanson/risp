@@ -1,0 +1,18 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "Unit tests",
+    "build": {
+      "command": "cargo",
+      "args": ["build", "--target=x86_64-apple-darwin"]
+    },
+    "program": "$ZED_WORKTREE_ROOT/target/x86_64-apple-darwin/debug/risp",
+    // sourceLanguages is required for CodeLLDB (not GDB) when using Rust
+    "sourceLanguages": ["rust"],
+    "request": "launch",
+    "adapter": "CodeLLDB"
+  }
+]

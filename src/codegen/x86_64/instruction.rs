@@ -1,21 +1,22 @@
-use iced_x86::code_asm::{get_gpr64, rax, AsmRegister64, CodeAssembler, CodeLabel};
+use std::collections::HashMap;
+
+use iced_x86::code_asm::{rax, AsmRegister64, CodeAssembler, CodeLabel};
 
 use crate::{
     codegen::CodegenResult,
-    ir::{self, AssignmentTarget},
+    ir::{self, AssignmentTarget, Slot},
     parser::{ArithmeticOperator, BinaryOperator},
 };
 
 use super::{
     abi::{parameter_register, stack_variable_ref},
     codegen_state::CodegenState,
-    register_allocation::ReserveMode,
     slot::{slot_to_register, SlotValue},
-    Register,
 };
 
 pub fn codegen_instruction(
     state: &mut CodegenState,
+    register_map: &HashMap<Slot, AsmRegister64>,
     assembler: &mut CodeAssembler,
     instruction: &ir::Instruction,
     epilogue_label: &CodeLabel,
@@ -35,29 +36,19 @@ pub fn codegen_instruction(
                         .slot_values
                         .insert(*destination, SlotValue::Literal(literal.clone()));
                 }
-
                 ir::Opcode::BinaryOperator(lhs, BinaryOperator::ArithmeticOperator(op), rhs) => {
-                    let lhs = slot_to_register(state, assembler, lhs)?;
-                    let rhs = slot_to_register(state, assembler, rhs)?;
+                    let lhs = slot_to_register(state, register_map, assembler, lhs)?;
+                    let rhs = slot_to_register(state, register_map, assembler, rhs)?;
 
                     match op {
                         ArithmeticOperator::Add => {
-                            assembler.add::<AsmRegister64, AsmRegister64>(
-                                lhs.to_gpr64(),
-                                rhs.to_gpr64(),
-                            )?;
+                            assembler.add::<AsmRegister64, AsmRegister64>(lhs, rhs)?;
                         }
                         ArithmeticOperator::Multiply => {
-                            assembler.imul_2::<AsmRegister64, AsmRegister64>(
-                                lhs.to_gpr64(),
-                                rhs.to_gpr64(),
-                            )?;
+                            assembler.imul_2::<AsmRegister64, AsmRegister64>(lhs, rhs)?;
                         }
                         ArithmeticOperator::Subtract => {
-                            assembler.sub::<AsmRegister64, AsmRegister64>(
-                                lhs.to_gpr64(),
-                                rhs.to_gpr64(),
-                            )?;
+                            assembler.sub::<AsmRegister64, AsmRegister64>(lhs, rhs)?;
                         }
                         ArithmeticOperator::Divide => {
                             todo!("division operator");
@@ -68,82 +59,116 @@ pub fn codegen_instruction(
                         .slot_values
                         .insert(*destination, SlotValue::Register(lhs));
                 }
-
                 ir::Opcode::BinaryOperator(_lhs, BinaryOperator::ComparisonOperator(_op), _rhs) => {
-                    todo!("comparison operators")
+                    unimplemented!("comparison operators in expressions")
                 }
-
                 ir::Opcode::CallFunction(func, args) => {
-                    for (index, arg) in args.iter().enumerate() {
-                        let dest_register = parameter_register(index)?;
-                        let arg_register = slot_to_register(state, assembler, arg)?;
-
-                        assembler.mov::<AsmRegister64, AsmRegister64>(
-                            dest_register,
-                            arg_register.to_gpr64(),
-                        )?;
+                    for arg in args {
+                        slot_to_register(state, register_map, assembler, arg)?;
                     }
 
                     assembler.call(func.address() as u64)?;
-                    let register = state
-                        .registers
-                        .reserve_specific_register(Register::RAX, ReserveMode::AllowReuse)?;
                     state
                         .slot_values
-                        .insert(*destination, SlotValue::Register(register));
+                        .insert(*destination, SlotValue::Register(rax));
                 }
-
                 ir::Opcode::FunctionArgument(index) => {
                     state
                         .slot_values
                         .insert(*destination, SlotValue::FunctionArgument(*index));
                 }
-
                 ir::Opcode::SetReturnValue(slot) => {
-                    let value = slot_to_register(state, assembler, slot)?;
-                    assembler.mov(
-                        rax,
-                        get_gpr64(value.0).expect("register is not a General-Purpose Register"),
-                    )?;
+                    let value = slot_to_register(state, register_map, assembler, slot)?;
+                    if value != rax {
+                        assembler.mov(rax, value)?;
+                    }
                 }
-
                 ir::Opcode::Return => assembler.jmp(*epilogue_label)?,
-
                 ir::Opcode::StackVariable(offset) => {
                     state
                         .slot_values
                         .insert(*destination, SlotValue::StackOffset(*offset));
                 }
-
                 ir::Opcode::Jump(condition, label) => {
                     let label = *state.label(assembler, label);
                     match condition {
                         ir::JumpCondition::Unconditional => {
                             assembler.jmp(label)?;
                         }
-                        ir::JumpCondition::IfZero(slot) => {
-                            let slot_register = slot_to_register(state, assembler, slot)?;
-                            assembler.cmp(slot_register.to_gpr64(), 0)?;
+                        ir::JumpCondition::Zero(identifier) => {
+                            let register =
+                                slot_to_register(state, register_map, assembler, identifier)?;
+                            assembler.test(register, register)?;
+                            assembler.jz(label)?;
+                        }
+                        ir::JumpCondition::NotZero(identifier) => {
+                            let register =
+                                slot_to_register(state, register_map, assembler, identifier)?;
+                            assembler.test(register, register)?;
+                            assembler.jnz(label)?;
+                        }
+                        ir::JumpCondition::Equal(lhs, rhs) => {
+                            let lhs_register =
+                                slot_to_register(state, register_map, assembler, lhs)?;
+                            let rhs_register =
+                                slot_to_register(state, register_map, assembler, rhs)?;
+                            assembler.cmp(lhs_register, rhs_register)?;
                             assembler.je(label)?;
                         }
-                        ir::JumpCondition::IfNotZero(slot) => {
-                            let slot_register = slot_to_register(state, assembler, slot)?;
-                            assembler.cmp(slot_register.to_gpr64(), 0)?;
+                        ir::JumpCondition::NotEqual(lhs, rhs) => {
+                            let lhs_register =
+                                slot_to_register(state, register_map, assembler, lhs)?;
+                            let rhs_register =
+                                slot_to_register(state, register_map, assembler, rhs)?;
+                            assembler.cmp(lhs_register, rhs_register)?;
                             assembler.jne(label)?;
+                        }
+                        ir::JumpCondition::Greater(lhs, rhs) => {
+                            let lhs_register =
+                                slot_to_register(state, register_map, assembler, lhs)?;
+                            let rhs_register =
+                                slot_to_register(state, register_map, assembler, rhs)?;
+                            assembler.cmp(lhs_register, rhs_register)?;
+                            assembler.jg(label)?;
+                        }
+                        ir::JumpCondition::GreaterOrEqual(lhs, rhs) => {
+                            let lhs_register =
+                                slot_to_register(state, register_map, assembler, lhs)?;
+                            let rhs_register =
+                                slot_to_register(state, register_map, assembler, rhs)?;
+                            assembler.cmp(lhs_register, rhs_register)?;
+                            assembler.jge(label)?;
+                        }
+                        ir::JumpCondition::Less(lhs, rhs) => {
+                            let lhs_register =
+                                slot_to_register(state, register_map, assembler, lhs)?;
+                            let rhs_register =
+                                slot_to_register(state, register_map, assembler, rhs)?;
+                            assembler.cmp(lhs_register, rhs_register)?;
+                            assembler.jl(label)?;
+                        }
+                        ir::JumpCondition::LessOrEqual(lhs, rhs) => {
+                            let lhs_register =
+                                slot_to_register(state, register_map, assembler, lhs)?;
+                            let rhs_register =
+                                slot_to_register(state, register_map, assembler, rhs)?;
+                            assembler.cmp(lhs_register, rhs_register)?;
+                            assembler.jle(label)?;
                         }
                     };
                 }
+                ir::Opcode::Phi(_) => {}
             };
         }
         ir::Instruction::Assign(target, rhs) => {
-            let value = slot_to_register(state, assembler, rhs)?;
+            let value = slot_to_register(state, register_map, assembler, rhs)?;
 
             match target {
                 AssignmentTarget::StackVariable(offset) => {
-                    assembler.mov(stack_variable_ref(*offset), value.to_gpr64())?;
+                    assembler.mov(stack_variable_ref(*offset), value)?;
                 }
                 AssignmentTarget::FunctionArgument(index) => {
-                    assembler.mov(parameter_register(*index)?, value.to_gpr64())?;
+                    assembler.mov(parameter_register(*index)?, value)?;
                 }
             }
         }

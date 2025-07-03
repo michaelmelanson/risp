@@ -10,7 +10,9 @@ use crate::parser::block::parse_block_inner;
 
 pub use self::{
     block::{parse_block, Block},
-    expression::{parse_expression, ArithmeticOperator, BinaryOperator, Expression},
+    expression::{
+        parse_expression, ArithmeticOperator, BinaryOperator, ComparisonOperator, Expression,
+    },
     identifier::{parse_identifier, Identifier},
     literal::{parse_literal, Literal},
     statement::{

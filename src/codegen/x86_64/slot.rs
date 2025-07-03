@@ -1,17 +1,16 @@
-use std::rc::Rc;
+use std::collections::HashMap;
 
-use iced_x86::code_asm::CodeAssembler;
+use iced_x86::code_asm::{AsmRegister64, CodeAssembler};
 
 use crate::{
     codegen::CodegenResult,
-    ir,
+    ir::{self, Slot},
     value::{EncodedValue, Value},
 };
 
 use super::{
     abi::{parameter_register, stack_variable_ref},
     codegen_state::CodegenState,
-    register_allocation::{RegisterLease, ReserveMode},
     CodegenError,
 };
 
@@ -19,41 +18,40 @@ use super::{
 pub enum SlotValue {
     Literal(Value),
     FunctionArgument(usize),
-    Register(Rc<RegisterLease>),
+    Register(AsmRegister64),
     StackOffset(usize),
 }
 
 pub fn slot_to_register(
     state: &mut CodegenState,
+    register_map: &HashMap<Slot, AsmRegister64>,
     assembler: &mut CodeAssembler,
     slot: &ir::Slot,
-) -> CodegenResult<Rc<RegisterLease>> {
+) -> CodegenResult<AsmRegister64> {
     let slot_value = state.slot_values.get(slot);
     match slot_value {
         Some(SlotValue::Register(register)) => Ok(register.clone()),
         Some(SlotValue::Literal(literal)) => {
             let value: EncodedValue = literal.try_into().map_err(CodegenError::ValueEncodeError)?;
-            let reg = state.registers.reserve_register()?;
+            let reg = register_map
+                .get(slot)
+                .expect(&format!("no register mapped for slot {slot}"));
 
             let value = unsafe { value.encoded_value() };
-            assembler.mov(reg.to_gpr64(), value)?;
+            assembler.mov(*reg, value)?;
 
-            Ok(reg)
+            Ok(*reg)
         }
 
-        Some(SlotValue::FunctionArgument(index)) => {
-            let register = state.registers.reserve_specific_register(
-                parameter_register(*index)?.into(),
-                ReserveMode::AllowReuse,
-            )?;
-            Ok(register)
-        }
+        Some(SlotValue::FunctionArgument(index)) => Ok(parameter_register(*index)?.into()),
 
         Some(SlotValue::StackOffset(offset)) => {
             let offset = *offset;
-            let reg = state.registers.reserve_register()?;
-            assembler.mov(reg.to_gpr64(), stack_variable_ref(offset))?;
-            Ok(reg)
+            let reg = register_map
+                .get(slot)
+                .expect("no register mapped for slot {slot}");
+            assembler.mov(*reg, stack_variable_ref(offset))?;
+            Ok(*reg)
         }
 
         None => Err(CodegenError::InternalError(format!(

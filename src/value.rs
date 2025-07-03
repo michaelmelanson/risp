@@ -127,6 +127,7 @@ impl TryFrom<EncodedValue> for Value {
     type Error = ValueDecodeError;
 
     fn try_from(encoded: EncodedValue) -> Result<Self, Self::Error> {
+        println!("Decoding value: {encoded:?}");
         let type_number = encoded.0 >> EncodedValue::VALUE_BITS;
         let value = (encoded.0 & EncodedValue::VALUE_MASK) as i64;
         match ValueType::try_from(type_number)? {
