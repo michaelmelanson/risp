@@ -157,7 +157,12 @@ pub fn codegen_instruction(
                         }
                     };
                 }
-                ir::Opcode::Phi(_) => {}
+                ir::Opcode::PhiStart(slot) => {
+                    let _ = slot_to_register(state, register_map, assembler, slot)?;
+                }
+                ir::Opcode::PhiEnd(_slots) => {
+                    state.slot_values.insert(*destination, SlotValue::Phi);
+                }
             };
         }
         ir::Instruction::Assign(target, rhs) => {

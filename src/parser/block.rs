@@ -1,4 +1,4 @@
-use nom::{multi::many0, sequence::delimited};
+use nom::{multi::many1, sequence::delimited};
 use nom_locate::position;
 
 use super::{
@@ -16,7 +16,7 @@ pub fn parse_block(input: Span) -> ParseResult<Block> {
 
 pub fn parse_block_inner(input: Span) -> ParseResult<Block> {
     let (input, position) = position(input)?;
-    let (input, statements) = many0(parse_statement)(input)?;
+    let (input, statements) = many1(parse_statement)(input)?;
 
     let statements = statements.iter().map(|t| t.value.clone()).collect();
     Ok((

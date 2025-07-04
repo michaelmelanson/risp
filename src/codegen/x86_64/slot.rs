@@ -20,6 +20,7 @@ pub enum SlotValue {
     FunctionArgument(usize),
     Register(AsmRegister64),
     StackOffset(usize),
+    Phi,
 }
 
 pub fn slot_to_register(
@@ -51,6 +52,13 @@ pub fn slot_to_register(
                 .get(slot)
                 .expect("no register mapped for slot {slot}");
             assembler.mov(*reg, stack_variable_ref(offset))?;
+            Ok(*reg)
+        }
+
+        Some(SlotValue::Phi) => {
+            let reg = register_map
+                .get(slot)
+                .expect("no register mapped for slot {slot}");
             Ok(*reg)
         }
 

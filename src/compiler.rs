@@ -175,7 +175,8 @@ fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> 
         }
 
         let result = compile_block(block, branch_block)?;
-        branch_results.push(result);
+        let phi = block.push_op(ir::Opcode::PhiStart(result));
+        branch_results.push(phi);
 
         if !is_last_branch {
             block.push_op(ir::Opcode::Jump(
@@ -188,7 +189,7 @@ fn compile_condition_statement(block: &mut ir::Block, condition: &Condition) -> 
 
     block.set_label(end_label.clone());
 
-    let result = block.push_op(ir::Opcode::Phi(branch_results));
+    let result = block.push_op(ir::Opcode::PhiEnd(branch_results));
     Ok(result)
 }
 

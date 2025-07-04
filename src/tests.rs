@@ -238,7 +238,7 @@ mod test {
             eval(
                 "
             def test() {
-                if 1 < 2 { 'pass' } else { 'fail' }
+                if 1 < 2 { \"pass\" } else { \"fail\" }
             }
             test()"
             ),

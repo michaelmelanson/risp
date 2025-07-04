@@ -122,11 +122,10 @@ fn allocate_registers(block: &ir::Block) -> HashMap<Slot, AsmRegister64> {
         free_registers: &mut Vec<AsmRegister64>,
         slot: &Slot,
     ) -> AsmRegister64 {
-        let register = free_registers.pop().unwrap();
-
         if let Some(register) = register_map.get(slot) {
             *register
         } else {
+            let register = free_registers.pop().unwrap();
             assign_register(register_map, slot, register);
             register
         }
@@ -138,7 +137,9 @@ fn allocate_registers(block: &ir::Block) -> HashMap<Slot, AsmRegister64> {
         slot: &Slot,
     ) {
         if let Some(register) = register_map.get(slot) {
-            free_registers.push(*register);
+            if !free_registers.contains(register) {
+                free_registers.push(*register);
+            }
         }
     }
 
@@ -205,12 +206,21 @@ fn allocate_registers(block: &ir::Block) -> HashMap<Slot, AsmRegister64> {
                     assign_register(&mut register_map, lhs, register);
                     choose_register(&mut register_map, &mut free_registers, rhs);
                 }
-                ir::Opcode::Phi(slots) => {
-                    if let Some(register) = register_map.get(destination) {
-                        let register = register.clone();
-                        for slot in slots {
-                            assign_register(&mut register_map, slot, register);
-                        }
+                ir::Opcode::PhiStart(slot) => {
+                    let register = register_map
+                        .get(destination)
+                        .expect(&format!(
+                            "destination register not yet set for slot {destination}"
+                        ))
+                        .clone();
+
+                    assign_register(&mut register_map, slot, register);
+                }
+                ir::Opcode::PhiEnd(slots) => {
+                    let register =
+                        choose_register(&mut register_map, &mut free_registers, destination);
+                    for slot in slots {
+                        assign_register(&mut register_map, slot, register);
                     }
                 }
             },

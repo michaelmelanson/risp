@@ -30,7 +30,8 @@ pub enum Opcode {
     BinaryOperator(Slot, BinaryOperator, Slot),
     CallFunction(Rc<Function>, Vec<Slot>),
     StackVariable(usize),
-    Phi(Vec<Slot>),
+    PhiStart(Slot),
+    PhiEnd(Vec<Slot>),
 }
 
 impl std::fmt::Display for Opcode {
@@ -58,8 +59,11 @@ impl std::fmt::Display for Opcode {
             Opcode::Jump(condition, label) => {
                 write!(f, "jump to {label} if {condition}")
             }
-            Opcode::Phi(slots) => {
-                write!(f, "phi(")?;
+            Opcode::PhiStart(slot) => {
+                write!(f, "start phi({slot})")
+            }
+            Opcode::PhiEnd(slots) => {
+                write!(f, "end phi(")?;
                 for (index, slot) in slots.iter().enumerate() {
                     write!(f, "{slot}")?;
 
