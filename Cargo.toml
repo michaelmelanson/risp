@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 "nom" = "7"
-"nom_locate" = "4"
+"nom_locate" = "5"
 "rustyline" = { version = "10", default-features = false }
 memmap2 = "0.9"
 
